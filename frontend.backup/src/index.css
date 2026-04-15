@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 216 33% 7%;
+    --foreground: 220 14% 90%;
+    --card: 216 33% 12%;
+    --card-foreground: 220 14% 90%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 19% 27%;
+    --secondary-foreground: 220 14% 90%;
+    --muted: 217 19% 27%;
+    --muted-foreground: 218 11% 65%;
+    --destructive: 0 84% 60%;
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --border: 218 19% 27%;
+    --surface-hover: 213 27% 16%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+}
+
+@layer components {
+  .stat-card {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: all 200ms ease;
+  }
+  .stat-card:hover {
+    background-color: hsl(var(--surface-hover));
+  }
+
+  .data-table {
+    width: 100%;
+    font-size: 0.875rem;
+  }
+  .data-table thead {
+    background-color: hsl(var(--secondary) / 0.3);
+  }
+  .data-table th {
+    padding: 0.75rem;
+    text-align: left;
+    color: hsl(var(--muted-foreground));
+    font-weight: 500;
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
+  }
+  .data-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
+    color: hsl(var(--foreground));
+  }
+  .data-table tbody tr:hover {
+    background-color: hsl(var(--secondary) / 0.1);
+  }
+
+  .badge-bullish {
+    background-color: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-bearish {
+    background-color: hsl(var(--destructive) / 0.1);
+    color: hsl(var(--destructive));
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-neutral {
+    background-color: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .gauge-value-positive {
+    color: hsl(var(--success));
+    font-weight: 600;
+  }
+  .gauge-value-negative {
+    color: hsl(var(--destructive));
+    font-weight: 600;
+  }
+  .gauge-value-warning {
+    color: hsl(var(--warning));
+    font-weight: 600;
+  }
+
+  .font-mono-data {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .demo-banner {
+    background-color: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .muted-foreground {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  .scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--border) / 0.8);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Recharts overrides */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: hsl(var(--border) / 0.3);
+}
+.recharts-tooltip-wrapper {
+  outline: none;
+}

@@ -1,0 +1,38 @@
+{
+  "engine": "alpha_intraday",
+  "best_config": {
+    "confidence_threshold": 45,
+    "atr_multiplier": 1.5,
+    "rr_ratio": 2.0,
+    "max_trades_per_day": 20,
+    "scanner_universe_size": 20,
+    "intervals": [
+      "5m",
+      "15m"
+    ]
+  },
+  "optimization_target": "maximize_total_return_with_pf_gt_1_5_and_winrate_gte_55",
+  "intraday_metrics": {
+    "total_return": 0.869470618698778,
+    "win_rate": 49.963289280469894,
+    "max_drawdown": -0.5256364617147751,
+    "profit_factor": 1.0699471158563303,
+    "sharpe_ratio": 0.4892909738595251,
+    "average_risk_reward": 1.7914258821537055,
+    "consecutive_losses": 13,
+    "benchmark_return": -0.09481161075248745,
+    "num_trades": 2724
+  },
+  "options_layer_metrics": {
+    "total_return": -0.046541860863188594,
+    "win_rate": 0.5873715124816447,
+    "max_drawdown": -0.05192805504766462,
+    "profit_factor": 0.44943934460202334,
+    "sharpe_ratio": -0.5187401102124051,
+    "average_risk_reward": 2.0,
+    "consecutive_losses": 2,
+    "benchmark_return": 0.0,
+    "num_trades": 2724
+  },
+  "top_opportunities": []
+}

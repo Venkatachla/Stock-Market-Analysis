@@ -1,0 +1,834 @@
+STCOK QUANTITATIVE TRADING DASHBOARD - FRONTEND REQUIREMENTS
+
+================================================================================
+PROJECT OVERVIEW
+================================================================================
+
+Full-stack trading dashboard for quantitative analysis, stock predictions, 
+backtesting, paper trading, and market signal detection. Dark theme modern UI 
+with real-time data visualization and API integration.
+
+
+================================================================================
+TECHNOLOGY STACK
+================================================================================
+
+Framework: Next.js 14 (App Router)
+Language: TypeScript (100% type-safe)
+Styling: TailwindCSS 4 + Custom CSS (globals.css)
+UI Components: React 18 with Hooks
+Charts: Recharts (Line, Area, Bar charts)
+Icons: Lucide React
+HTTP Client: Axios with timeout/error handling
+Package Manager: npm
+Build Tool: Turbopack (Next.js built-in)
+
+Node version: 18+
+npm version: 9+
+
+Environment Variables:
+- NEXT_PUBLIC_API_URL=http://localhost:8000 (Backend API endpoint)
+
+
+================================================================================
+DESIGN SYSTEM - DARK THEME
+================================================================================
+
+Color Palette:
+- Background: #0d1219 (Very Dark Navy)
+- Surface: #141d2a (Dark Navy)
+- Surface Hover: #1a2635 (Slightly Lighter Navy)
+- Border: #374151 (Medium Gray - 50% opacity)
+- Text Primary: #e5e7eb (Light Gray)
+- Text Secondary: #9ca3af (Medium Gray)
+- Text Tertiary: #6b7280 (Darker Gray)
+- Accent Blue: #3b82f6
+- Success Green: #10b981
+- Danger Red: #ef4444
+- Warning Yellow: #f59e0b
+- Info Purple: #8b5cf6
+
+Font Family: System fonts (-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto')
+Font Sizes:
+- h1: 2rem (32px), font-weight: 700
+- h2: 1.5rem (24px), font-weight: 600
+- h3: 1.25rem (20px), font-weight: 600
+- Body: 1rem (16px), font-weight: 400
+- Small: 0.875rem (14px), font-weight: 400
+
+Spacing Scale: 4px, 8px, 12px, 16px, 24px, 32px (using Tailwind defaults)
+Border Radius: 4px (small), 6px (medium), 8px (large)
+Shadows: Subtle dark-mode appropriate shadows
+
+
+================================================================================
+PAGE STRUCTURE & ROUTING
+================================================================================
+
+Pages (5 main sections):
+
+1. / (Dashboard - Home Page)
+   - Overview of trading system
+   - Market regime detector (Bull/Bear/Neutral)
+   - Top predictions list
+   - Recent signals summary
+   - Portfolio stats cards
+   - Charts: Market sentiment, regime comparison
+
+2. /stock-prediction (Stock Prediction Analysis)
+   - Individual stock prediction interface
+   - Stock search/selection
+   - ML model prediction results
+   - Probability gauge visualization
+   - Historical price chart
+   - Prediction confidence metrics
+   - Related signals and trends
+
+3. /backtest (Backtest Results & Analysis)
+   - Historical strategy performance
+   - Backtest results table (top 10 strategies)
+   - Performance metrics cards:
+     * Total Return
+     * Sharpe Ratio
+     * Max Drawdown
+     * Win Rate
+   - Charts:
+     * Cumulative Returns (Line chart)
+     * Annual Returns (Bar chart)
+     * Underwater Plot (Area chart)
+   - Strategy filters and sorting
+
+4. /paper-trading (Paper Trading Portfolio)
+   - Simulated trading account dashboard
+   - Portfolio value card
+   - Active trades table:
+     * Symbol, Entry Price, Current Price, P&L, Status
+   - Trade statistics cards
+   - Recent trade history
+   - Portfolio allocation chart
+   - Monthly performance chart
+   - Risk metrics display
+
+5. /signals (Trading Signals Explorer)
+   - Real-time trading signals list
+   - Signals table with columns:
+     * Symbol, Signal Type, Confidence, Entry Price, Target Price, Stop Loss
+   - Signal filters (bullish/bearish/neutral)
+   - Signal severity badges
+   - Historic signals archive
+   - Signal performance tracking
+   - Charts showing signal accuracy
+
+
+================================================================================
+LAYOUT COMPONENTS
+================================================================================
+
+Global Layout:
+- Header (top bar with logo, search, profile)
+- Navigation Sidebar (left, collapsible, 5 menu items)
+- Main Content Area (middle/right)
+- Footer (bottom, optional)
+
+1. Header Component
+   - Logo: "STCOK" (cyan/blue color)
+   - Search bar (for symbols)
+   - Notification bell icon
+   - Profile dropdown
+   - Demo Mode badge (blue, top-right)
+
+2. Navigation Sidebar
+   - Menu items with icons (Lucide React):
+     * Dashboard (BarChart3)
+     * Stock Prediction (TrendingUp)
+     * Backtest (Activity)
+     * Paper Trading (Wallet)
+     * Signals (Zap)
+   - Active link highlighting (blue)
+   - Hover effects
+   - Collapse/expand toggle
+
+3. Main Content Area
+   - Responsive grid layout (1-3 columns depending on page)
+   - Max width: 1400px
+   - Padding: 16-24px
+   - White space for readability
+
+
+================================================================================
+CARD & COMPONENT DESIGNS
+================================================================================
+
+Standard Card:
+- Background: #141d2a
+- Border: 1px solid rgba(55, 65, 81, 0.5)
+- Border-radius: 8px
+- Padding: 16px
+- Hover effect: slight background lightening
+
+Stat Card (KPI display):
+- Title (small gray text, 0.875rem)
+- Value (large white text, 1.875rem, bold)
+- Change indicator (green/red, with % and arrow)
+- Optional: Mini chart or progress bar
+
+Table:
+- Header: Dark gray background rgba(55, 65, 81, 0.3)
+- Header text: #d1d5db (light gray)
+- Body text: #e5e7eb (light gray)
+- Row borders: 1px solid rgba(55, 65, 81, 0.5)
+- Row hover: rgba(55, 65, 81, 0.1) background
+- Padding: 12px per cell
+
+Badge/Label:
+- Small pill-shaped labels
+- Colors:
+  * Green (bullish): bg-10b981 10% opacity, text #10b981
+  * Red (bearish): bg-ef4444 10% opacity, text #ef4444
+  * Blue (neutral): bg-3b82f6 10% opacity, text #3b82f6
+  * Yellow (warning): bg-f59e0b 10% opacity, text #f59e0b
+  * Purple (info): bg-8b5cf6 10% opacity, text #8b5cf6
+
+Button:
+- Primary: #3b82f6 background, white text, hover: #1d4ed8
+- Secondary: #374151 background, white text, hover: #4b5563
+- Success: #10b981 background, white text, hover: #059669
+- Danger: #ef4444 background, white text, hover: #dc2626
+- Padding: 8px 16px
+- Border-radius: 8px
+- Font-weight: 500
+- Transition: 200ms on hover
+
+Input/Form Elements:
+- Background: rgba(55, 65, 81, 0.2)
+- Border: 1px solid #374151
+- Border-radius: 6px
+- Text color: #e5e7eb
+- Placeholder: #9ca3af
+- Focus: border #3b82f6, box-shadow with blue glow
+- Padding: 8px 12px
+
+Alert/Banner:
+- Padding: 12px 16px
+- Border-radius: 8px
+- Display: flex with gap 12px
+- Types:
+  * Info: bg-3b82f6 10%, border 30%, text #93c5fd
+  * Success: bg-10b981 10%, border 30%, text #86efac
+  * Error: bg-ef4444 10%, border 30%, text #fca5a5
+  * Warning: bg-f59e0b 10%, border 30%, text #fcd34d
+
+Probability Gauge (custom component):
+- Circular dial showing 0-100%
+- Color gradient: Red (low) → Yellow (medium) → Green (high)
+- Center displays percentage
+- Animated needle
+
+Icon Requirements:
+- All icons from Lucide React library
+- Size: 20-24px for UI elements
+- Usage: Navigation, headers, buttons, status indicators
+
+
+================================================================================
+DATA & MOCK DATA STRUCTURE
+================================================================================
+
+Backend Fallback System:
+- When backend (http://localhost:8000) is unavailable, use comprehensive mock data
+- Show blue "Demo Mode" banner on all pages
+- Mock data should be realistic and consistent
+
+API Endpoints (with fallback mock data):
+
+1. GET /api/regime
+   Returns: { regime: "Bull" | "Bear" | "Neutral", confidence: number }
+
+2. GET /api/predictions
+   Returns: Array of predictions with:
+   - symbol, price, ml_pred, probability, timestamp
+
+3. GET /api/signals
+   Returns: Array of signals with:
+   - symbol, type ("BUY" | "SELL"), confidence, price, target, stop_loss
+
+4. GET /api/market-sentiment
+   Returns: { sentiment: number (0-100), trend: string }
+
+5. GET /api/prediction/{symbol}
+   Returns: Detailed prediction for specific stock
+
+6. GET /api/stock-data/{symbol}
+   Returns: Historical price data for charting
+
+7. GET /api/news
+   Returns: Array of trading-related news items
+
+8. GET /api/backtest/results
+   Returns: Historical backtest performance data
+
+9. GET /api/paper-trading/portfolio
+   Returns: Current paper trading portfolio state
+
+10. GET /api/paper-trading/trades
+    Returns: List of paper trading transactions
+
+
+Mock Data Content Required:
+- 5+ stock predictions (with various probabilities)
+- 10+ trading signals (mixed buy/sell with different confidence)
+- 4+ backtest strategies with complete metrics
+- 5+ paper trading positions
+- Market sentiment score
+- 8+ news items
+- Historical price data points for charts
+
+
+================================================================================
+CHARTS & VISUALIZATIONS
+================================================================================
+
+Recharts Implementation:
+
+1. Line Chart (Stock Prices, Time Series)
+   - X-axis: Time/Date
+   - Y-axis: Price value
+   - Single or multiple series
+   - Smooth curves
+   - Tooltip on hover
+   - Legend
+
+2. Area Chart (Cumulative Returns, Drawdown)
+   - Filled area under line
+   - Color gradient
+   - Smooth animation
+
+3. Bar Chart (Annual Returns, Win Rates)
+   - Grouped or stacked bars
+   - Color coding by value
+   - Value labels on bars
+
+4. Custom Gauge (Probability Display)
+   - Circular dial
+   - 0-100% scale
+   - Color zones (red/yellow/green)
+   - Animated needle
+
+Chart Features (All Charts):
+- Dark theme styling (dark background, light text)
+- Responsive width (100%, auto height)
+- Tooltip with formatted values
+- Legend for multiple series
+- Smooth animations
+- No borders around chart
+- Grid lines subtle (rgba(55, 65, 81, 0.3))
+
+
+================================================================================
+PAGES - DETAILED SPECIFICATIONS
+================================================================================
+
+PAGE 1: DASHBOARD (/)
+================================================================================
+
+Layout: 
+- 3-column grid on desktop (1200px+)
+- 1-column on mobile
+- Top section: Full width
+- Bottom: Sidebar-aware content
+
+Content Sections:
+
+A. Header Section
+   Title: "Trading Dashboard"
+   Demo Mode Badge (if backend unavailable)
+   Subtitle: Market overview & key metrics
+
+B. Regime Indicator Card
+   - Display: Market Regime (Bull/Bear/Neutral)
+   - Large colored badge
+   - Confidence percentage
+   - Color: Green (Bull), Red (Bear), Gray (Neutral)
+
+C. Key Metrics Cards (4 cards)
+   - Total Portfolio Value: $xxx,xxx
+   - Today's Gain/Loss: $xxx (+X%)
+   - Win Rate: XX%
+   - Sharpe Ratio: X.XX
+
+D. Top Predictions Section
+   Title: "Top Stock Predictions"
+   Table with columns:
+   - Symbol (sortable)
+   - Current Price (sortable)
+   - ML Prediction (sortable)
+   - Confidence (sortable)
+   - Status badge (bullish/bearish)
+   Max rows: 10
+   Pagination or scroll
+
+E. Recent Signals Section
+   Title: "Recent Trading Signals"
+   Table with columns:
+   - Symbol
+   - Signal Type (BUY/SELL badge)
+   - Confidence (%)
+   - Entry Price
+   Max rows: 8
+   Color-coded rows (green for buy, red for sell)
+
+F. Charts Section (2 columns)
+   - Left: Market Sentiment Gauge
+   - Right: Regime Distribution (Pie/Donut chart)
+   Updated: Every X seconds
+
+G. Market Sentiment Score
+   - Large percentage display
+   - Trend direction (up/down arrows)
+   - Historical sparkline (mini chart)
+
+
+PAGE 2: STOCK PREDICTION (/stock-prediction)
+================================================================================
+
+Layout: 2-column
+- Left: Input & metrics (30%)
+- Right: Charts & details (70%)
+
+Content:
+
+A. Stock Search Section
+   - Search input (autocomplete suggestions)
+   - Symbol input field
+   - Submit button
+   - Recent searches (quick links)
+
+B. Prediction Details Card
+   Title: "[SYMBOL] - ML Prediction"
+   - Current Price: $XXX.XX
+   - 52-Week High: $XXX
+   - 52-Week Low: $XXX
+   - Volume: X.XM
+   - Market Cap: $XXX.XB
+
+C. Prediction Metrics
+   - ML Predicted Price: $XXX.XX
+   - Confidence: XX% (with gauge visualization)
+   - Predicted Change: +XX% or -XX%
+   - Target Price: $XXX
+   - Recommendation: Strong Buy/Buy/Hold/Sell/Strong Sell
+   - Risk Level: Low/Medium/High
+
+D. Historical Price Chart
+   Title: "Historical Price & Prediction"
+   - Line chart: Historical prices (60-day)
+   - Horizontal line: ML predicted price
+   - Shaded zone: Confidence interval
+   - X-axis: Dates
+   - Y-axis: Price
+   - Tooltip: Date, price, difference
+
+E. Related Signals
+   Title: "Related Trading Signals"
+   Cards showing recent signals for this stock
+   - Signal type
+   - Confidence
+   - Entry/Target prices
+
+F. Technical Indicators (optional)
+   Display: RSI, MACD, Bollinger Bands (if data available)
+
+
+PAGE 3: BACKTEST (/backtest)
+================================================================================
+
+Layout: 1-column
+
+Content:
+
+A. Filters & Controls (horizontal bar)
+   - Date range picker
+   - Strategy filter dropdown
+   - Sorting controls (by return, sharpe, etc.)
+   - View toggle (table/detailed)
+
+B. Performance Summary Cards (4 cards, full width)
+   - Total Return: XX%
+   - Sharpe Ratio: X.XX
+   - Max Drawdown: XX%
+   - Win Rate: XX%
+
+C. Backtest Results Table
+   Title: "Strategy Backtest Results"
+   Columns:
+   - Strategy Name (sortable)
+   - Initial Capital
+   - Final Value
+   - Total Return % (sortable, color-coded)
+   - Sharpe Ratio (sortable)
+   - Max Drawdown (sortable)
+   - Win Rate (sortable)
+   - Trades Count
+   Rows: 10-20 strategy results
+   Pagination available
+   Row click: Expand for details
+
+D. Charts Section (3 columns on desktop, stacked on mobile)
+   
+   Chart 1: Cumulative Returns
+   - Area chart
+   - Multiple strategy lines overlaid
+   - X-axis: Time
+   - Y-axis: Cumulative return %
+   
+   Chart 2: Annual Returns
+   - Bar chart
+   - Grouped by year
+   - Bars colored by performance
+   - Value labels
+   
+   Chart 3: Underwater Plot
+   - Area chart (inverted)
+   - Shows drawdown periods
+   - Red area showing peak-to-trough decline
+
+E. Detailed Strategy View
+   (Appears when row clicked)
+   - Strategy parameters
+   - Entry/exit rules
+   - Full metrics table
+   - Trade-by-trade breakdown
+   - Risk analysis
+
+
+PAGE 4: PAPER TRADING (/paper-trading)
+================================================================================
+
+Layout: 2-column (70/30 on desktop)
+
+Content:
+
+A. Portfolio Header
+   Title: "Paper Trading Portfolio"
+   Large stat: Portfolio Value: $XXX,XXX.XX
+   Gain/Loss display: +$XX,XXX (+X.XX%) - colored (green/red)
+   Cash Available: $XX,XXX.XX
+   Buying Power: $XX,XXX.XX
+
+B. Portfolio Allocation Chart (right column)
+   - Pie chart showing position allocation
+   - Top 5 holdings by percentage
+   - Colors: vary by position
+   - Legend with symbols and %
+
+C. Active Positions Table
+   Title: "Open Positions"
+   Columns:
+   - Symbol
+   - Shares
+   - Entry Price
+   - Current Price
+   - P&L: $XXX (+X%)
+   - P&L %: +X% (colored)
+   - Status: Long/Short
+   - Actions: Sell button
+   Size: 8-12 rows visible
+   Pagination if more
+
+D. Performance Metrics Cards (4 cards)
+   - Today's Gain/Loss: $XXX (+X%)
+   - Monthly Return: +X%
+   - Total Return: +X% or -X%
+   - Largest Position Weight: X%
+
+E. Trade History Section
+   Title: "Recent Trades"
+   Table columns:
+   - Symbol
+   - Type: Buy/Sell
+   - Quantity
+   - Price
+   - Total: $XXX
+   - Timestamp
+   - P&L (if closed)
+   Size: 5-10 visible
+   Full history: Expandable
+
+F. Monthly Performance Chart
+   - Bar chart
+   - X-axis: Months
+   - Y-axis: Monthly return %
+   - Bars: Green (profit) / Red (loss)
+
+
+PAGE 5: SIGNALS (/signals)
+================================================================================
+
+Layout: 1-column
+
+Content:
+
+A. Filters & Controls (horizontal)
+   - Signal Type filter: All/Buy/Sell
+   - Confidence filter: Low/Medium/High
+   - Time range: Today/This Week/This Month/All
+   - Sort button
+   - Search by symbol
+
+B. View Statistics (3-4 cards)
+   - Total Signals Today: XX
+   - Buy Signals: XX (green badge)
+   - Sell Signals: XX (red badge)
+   - Average Confidence: XX%
+
+C. Active Signals Table
+   Title: "Active Trading Signals"
+   Columns:
+   - Symbol (clickable)
+   - Signal Type: BUY/SELL (colored badge)
+   - Confidence: XX% (bar or numeric)
+   - Entry Price: $XXX.XX
+   - Target Price: $XXX.XX (+X%)
+   - Stop Loss: $XXX.XX
+   - Time Generated: XXX ago
+   - Accuracy (if closed): XX%
+   Rows: 15-20 visible
+   Color-coded rows (light green for buy, light red for sell)
+   Sortable columns
+   Pagination available
+
+D. Signal Details (on row click)
+   - Expand row or modal
+   - Full signal parameters
+   - Technical analysis
+   - Supporting chart
+   - Close signal button
+
+E. Signal History Section (expandable)
+   Title: "Signal History"
+   Table with closed signals
+   - Show accuracy/performance
+   - Entry/exit prices
+   - Profit/Loss
+   - Timeframe
+
+
+================================================================================
+RESPONSIVE DESIGN REQUIREMENTS
+================================================================================
+
+Breakpoints:
+- Mobile: < 640px (1 column, stacked)
+- Tablet: 640px - 1024px (2 columns, adjusted)
+- Desktop: 1024px - 1400px (3 columns, full featured)
+- Wide: > 1400px (max-width 1400px container)
+
+Mobile Adaptations:
+- Sidebar: Collapse to hamburger menu
+- Tables: Horizontal scroll or card view
+- Charts: Full width, reduced height
+- Cards: Stack vertically
+- Navigation: Bottom tab bar optional
+- Font sizes: Slightly reduced
+- Spacing: Slightly tighter
+
+Touch Interactions:
+- Buttons: Min 44px height/width
+- Tap targets: 48px preferred
+- Swipe: Sidebar toggle, chart pan
+- Long press: Context menu
+
+
+================================================================================
+ACCESSIBILITY REQUIREMENTS
+================================================================================
+
+- WCAG 2.1 AA compliance
+- Focus indicators (2px outline)
+- Alt text for all images
+- Semantic HTML
+- Color contrast: 4.5:1 for text
+- Keyboard navigation support
+- ARIA labels where needed
+- Screen reader support
+- Reduced motion support
+
+
+================================================================================
+PERFORMANCE REQUIREMENTS
+================================================================================
+
+- Page load time: < 2 seconds
+- Time to interactive: < 3 seconds
+- Lighthouse score: > 90 (Performance)
+- Bundle size: < 500KB gzipped
+- Image optimization: WebP with fallbacks
+- Lazy loading for images & components
+- Code splitting per page
+- Caching strategy: Static pages + dynamic API
+
+API Response Times:
+- Mock data: < 100ms
+- Backend (if available): < 1s timeout
+
+
+================================================================================
+ERROR HANDLING & STATE MANAGEMENT
+================================================================================
+
+Loading States:
+- Page loading: Skeleton screens
+- Chart loading: Spinner centered in chart area
+- Table loading: Row placeholders
+- API timeout: Show error banner + retry button
+
+Error States:
+- Network error: Banner with retry (auto-fallback to mock data)
+- Invalid input: Form validation messages (inline, below input)
+- 404 errors: Redirect to 404 page with home link
+- 500 errors: Friendly message, contact support
+
+Empty States:
+- No data: "No signals available", centered message
+- Empty search: "No results for [query]", suggest alternatives
+- Empty portfolio: "No positions", show tutorial
+
+State Management:
+- Client state: React hooks (useState, useContext)
+- API state: React Query or Axios with caching
+- Global state: Context API or Zustand (if needed)
+
+
+================================================================================
+BROWSER COMPATIBILITY
+================================================================================
+
+Supported Browsers:
+- Chrome/Edge: Latest 2 versions
+- Firefox: Latest 2 versions
+- Safari: Latest 2 versions
+- Mobile: Safari iOS 14+, Chrome Android 90+
+
+Polyfills: Not needed (modern JavaScript)
+
+
+================================================================================
+SEO & META TAGS
+================================================================================
+
+Page Titles:
+- / - STCOK Trading Dashboard
+- /stock-prediction - AI Stock Predictions | STCOK
+- /backtest - Strategy Backtesting | STCOK
+- /paper-trading - Paper Trading Portfolio | STCOK
+- /signals - Trading Signals | STCOK
+
+Meta Descriptions: 50-160 characters each
+Open Graph tags: For social sharing
+Favicon: STCOK logo
+
+
+================================================================================
+ADDITIONAL FEATURES & ENHANCEMENTS
+================================================================================
+
+Optional (Nice-to-Have):
+- Dark/Light mode toggle
+- Real-time notifications (WebSocket)
+- Export data (CSV, PDF)
+- Watchlist feature
+- Portfolio sharing
+- Strategy comparison tool
+- Advanced charting (TradingView chart)
+- Mobile app (React Native)
+- Dark mode cookie persistence
+- User authentication
+- Settings page
+- Help/Documentation
+- API documentation
+- Analytics tracking
+
+
+================================================================================
+DEPLOYMENT & BUILD
+================================================================================
+
+Build Command: npm run build
+Dev Command: npm run dev
+Start Command: npm start
+Lint Command: npm run lint
+Type Check: npm run type-check
+
+Build Output:
+- Static: 7 pages prerendered
+- JavaScript: Chunked and optimized
+- CSS: Purged unused classes
+- Images: Optimized and converted
+
+Deployment Platforms:
+- Vercel (recommended for Next.js)
+- Netlify
+- AWS Amplify
+- Docker container
+- Traditional server
+
+
+================================================================================
+GIT & VERSION CONTROL
+================================================================================
+
+Repository Structure:
+- src/app/ - Pages and layouts
+- src/components/ - Reusable components
+- src/lib/ - Utilities, API client, mock data
+- src/types/ - TypeScript type definitions
+- public/ - Static assets
+- styles/ - CSS files
+
+Commit Strategy:
+- Feature branches: feature/feature-name
+- Bugfix branches: bugfix/bug-name
+- Main branch: production-ready
+- Develop branch: staging
+
+
+================================================================================
+FINAL NOTES FOR IMPLEMENTATION
+================================================================================
+
+Priority Order:
+1. Setup Next.js 14 project structure
+2. Create all 5 pages with basic layouts
+3. Implement navigation & header
+4. Add mock data system
+5. Create card & component designs
+6. Implement charts (Recharts)
+7. Style everything with TailwindCSS + globals.css
+8. Add API client with fallback system
+9. Connect real data (if backend running)
+10. Test responsiveness
+11. Performance optimization
+12. Deploy
+
+Code Organization:
+- Keep components small (< 200 lines)
+- Use ts definitions for types
+- Extract constants to separate files
+- Create utility functions for repeated logic
+- Document complex functions
+- Follow naming conventions
+
+Testing (Optional but Recommended):
+- Unit tests: Jest + React Testing Library
+- E2E tests: Cypress
+- Visual tests: Percy or similar
+
+Documentation:
+- README.md with setup instructions
+- Component documentation
+- API documentation
+- Contributing guidelines
+
+================================================================================
+END OF REQUIREMENTS
+================================================================================

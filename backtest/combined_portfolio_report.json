@@ -1,0 +1,23 @@
+{
+  "capital_allocation": {
+    "swing_low_risk": 0.5,
+    "intraday_alpha": 0.3,
+    "high_risk_alpha": 0.2
+  },
+  "returns": {
+    "swing_return": 0.015441148139160213,
+    "intraday_return": 0.869470618698778,
+    "high_risk_alpha_return": -0.046541860863188594,
+    "combined_portfolio_return": 0.2592533875065758
+  },
+  "risk": {
+    "swing_drawdown": -0.006140475289480918,
+    "intraday_drawdown": -0.5256364617147751,
+    "combined_expected_win_rate": 69.09929169905847
+  },
+  "trade_frequency": {
+    "intraday_num_trades": 2724,
+    "minimum_required": 50,
+    "meets_requirement": true
+  }
+}
