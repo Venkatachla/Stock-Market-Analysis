@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/AuthContext";
 import AppLayout from "@/components/layout/AppLayout";
 import { LoadingState } from "@/components/common/StatusComponents";
 import NotFound from "./pages/NotFound.tsx";
@@ -21,9 +22,10 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Suspense fallback={<LoadingState />}>
-          <Routes>
+      <AuthProvider>
+        <BrowserRouter>
+          <Suspense fallback={<LoadingState />}>
+            <Routes>
             <Route
               path="/"
               element={
@@ -68,7 +70,8 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
-      </BrowserRouter>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

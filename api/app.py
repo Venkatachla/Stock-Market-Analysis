@@ -52,6 +52,9 @@ from trading.engine import build_trade_plan
 from trading.decision_engine import decide_trade, format_trade_signal
 from trading.risk import RiskLimits, RiskManager
 
+# Import new trading system routes
+from api.routes import router as trading_router
+
 LOOKBACK = 30
 ENSEMBLE_WEIGHTS = {"xgb": 0.4, "lgbm": 0.3, "rf": 0.2, "lstm": 0.1}
 SENTIMENT_WEIGHT = 0.08
@@ -162,6 +165,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include trading system routes
+app.include_router(trading_router)
 
 
 UNIVERSE_DF = None

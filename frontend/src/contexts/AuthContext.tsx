@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { setAuthToken } from '@/services/api';
 
 export interface User {
   email: string;
@@ -31,16 +32,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (savedToken && savedUser) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
+      setAuthToken(savedToken);
     }
     setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:8000/auth/login', {
+      const response = await fetch('http://localhost:8000/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name: email.split('@')[0] }),
       });
 
       if (!response.ok) {
@@ -58,6 +60,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setToken(authToken);
       setUser(userData);
+      setAuthToken(authToken);
       
       localStorage.setItem('auth_token', authToken);
       localStorage.setItem('auth_user', JSON.stringify(userData));
@@ -68,10 +71,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signup = async (email: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:8000/auth/register', {
+      const response = await fetch('http://localhost:8000/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name: email.split('@')[0] }),
       });
 
       if (!response.ok) {
@@ -89,6 +92,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setToken(authToken);
       setUser(userData);
+      setAuthToken(authToken);
       
       localStorage.setItem('auth_token', authToken);
       localStorage.setItem('auth_user', JSON.stringify(userData));
@@ -100,6 +104,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setUser(null);
     setToken(null);
+    setAuthToken(null);
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
   };

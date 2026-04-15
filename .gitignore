@@ -1,0 +1,101 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+db.sqlite3
+*.db-journal
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node/Frontend
+node_modules/
+/dist
+/build
+.npm
+.eslintcache
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Large ML models (optional - use Git LFS if needed)
+# Uncomment if storing models in repo:
+# *.pkl
+# *.joblib
+# *.h5
+# *.pt
+# *.pth
+
+# Temporary files
+*.bak
+*.backup
+*.old
+*.swp
+tmp/
+temp/
+
+# IDE generated files
+.vscode/settings.json
+.vscode/tasks.json
+
+# Build outputs
+*.whl

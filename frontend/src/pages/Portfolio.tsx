@@ -1,113 +1,295 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { usePolling } from '@/hooks/usePolling';
-import { fetchPortfolio } from '@/services/api';
+import { getPortfolio, getTransactions, Transaction } from '@/services/api';
 import { mockPortfolio } from '@/utils/mockData';
 import { formatCurrency, formatPercent } from '@/utils/format';
 import { SignalBadge, MetricCard } from '@/components/common/StatusComponents';
-import { PieChart, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { PieChart, TrendingUp, TrendingDown, Wallet, Plus, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import TradingModal from '@/components/TradingModal';
+import WalletModal from '@/components/WalletModal';
 import type { PortfolioHolding } from '@/services/api';
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
 const Portfolio: React.FC = () => {
-  const { data: holdings } = usePolling<PortfolioHolding[]>(
-    () => fetchPortfolio().catch(() => mockPortfolio), 30000
+  const { token } = useAuth();
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [tradingOpen, setTradingOpen] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<{ symbol: string; price: number; quantity?: number } | null>(null);
+  const [tradingMode, setTradingMode] = useState<'BUY' | 'SELL'>('BUY');
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const { data: portfolioData } = usePolling(
+    () => (token ? getPortfolio(token).catch(() => ({ wallet: { balance: 0, available_balance: 0, used_balance: 0 }, holdings: mockPortfolio, total_value: 0, total_invested: 0, total_pnl: 0, total_pnl_percent: 0 })) : Promise.resolve({ wallet: { balance: 0, available_balance: 0, used_balance: 0 }, holdings: mockPortfolio, total_value: 0, total_invested: 0, total_pnl: 0, total_pnl_percent: 0 })),
+    30000
   );
 
-  const portfolio = holdings ?? mockPortfolio;
+  const { data: transactionsData } = usePolling(
+    () => (token ? getTransactions(token, 10).catch(() => []) : Promise.resolve([])),
+    60000
+  );
+
+  const portfolio = portfolioData?.holdings ?? mockPortfolio;
+  const wallet = portfolioData?.wallet ?? { balance: 0, available_balance: 0, used_balance: 0 };
+  const transactions = transactionsData ?? [];
 
   const stats = useMemo(() => {
-    const totalValue = portfolio.reduce((sum, h) => sum + h.currentPrice * h.quantity, 0);
-    const totalInvested = portfolio.reduce((sum, h) => sum + h.avgPrice * h.quantity, 0);
-    const totalPnl = totalValue - totalInvested;
-    const totalPnlPercent = (totalPnl / totalInvested) * 100;
+    const totalValue = portfolioData?.total_value ?? 0;
+    const totalInvested = portfolioData?.total_invested ?? 0;
+    const totalPnl = portfolioData?.total_pnl ?? 0;
+    const totalPnlPercent = portfolioData?.total_pnl_percent ?? 0;
     return { totalValue, totalInvested, totalPnl, totalPnlPercent };
-  }, [portfolio]);
+  }, [portfolioData]);
+
+  const handleBuy = (holding: PortfolioHolding | { symbol: string; price: number }) => {
+    setSelectedStock({
+      symbol: holding.symbol,
+      price: 'price' in holding ? holding.price : (holding as PortfolioHolding).currentPrice,
+    });
+    setTradingMode('BUY');
+    setTradingOpen(true);
+  };
+
+  const handleSell = (holding: PortfolioHolding) => {
+    setSelectedStock({
+      symbol: holding.symbol,
+      price: holding.currentPrice,
+      quantity: holding.quantity,
+    });
+    setTradingMode('SELL');
+    setTradingOpen(true);
+  };
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  if (!token) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Please log in to view your portfolio</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Portfolio Analysis</h1>
-        <p className="text-sm text-muted-foreground mt-1">Track your holdings and performance</p>
+      {/* Notification */}
+      {notification && (
+        <div className={`p-4 rounded-lg border ${notification.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-300' : 'bg-red-500/10 border-red-500/20 text-red-300'}`}>
+          {notification.message}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Portfolio</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your holdings and wallet</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setWalletOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
+          >
+            <Wallet className="h-4 w-4" />
+            Wallet
+          </button>
+        </div>
       </div>
 
-      {/* Summary */}
+      {/* Wallet Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-lg border border-blue-500/20 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-slate-300 text-sm">Total Balance</span>
+            <Wallet className="h-4 w-4 text-blue-400" />
+          </div>
+          <p className="text-2xl font-bold text-blue-300">₹{wallet.balance.toFixed(2)}</p>
+          <p className="text-xs text-slate-400 mt-1">Available: ₹{wallet.available_balance.toFixed(2)}</p>
+        </div>
+
+        <MetricCard label="Portfolio Value" value={formatCurrency(stats.totalValue)} icon={<PieChart className="h-4 w-4 text-primary" />} />
+        <MetricCard
+          label="Total P&L"
+          value={formatCurrency(stats.totalPnl)}
+          change={formatPercent(stats.totalPnlPercent)}
+          positive={stats.totalPnl >= 0}
+          icon={stats.totalPnl >= 0 ? <TrendingUp className="h-4 w-4 text-signal-buy" /> : <TrendingDown className="h-4 w-4 text-signal-sell" />}
+        />
+      </div>
+
+      {/* Main Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="Portfolio Value" value={formatCurrency(stats.totalValue)} icon={<Wallet className="h-4 w-4 text-primary" />} />
         <MetricCard label="Invested" value={formatCurrency(stats.totalInvested)} />
-        <MetricCard label="Total P&L" value={formatCurrency(stats.totalPnl)} change={formatPercent(stats.totalPnlPercent)} positive={stats.totalPnl >= 0}
-          icon={stats.totalPnl >= 0 ? <TrendingUp className="h-4 w-4 text-signal-buy" /> : <TrendingDown className="h-4 w-4 text-signal-sell" />} />
-        <MetricCard label="Holdings" value={portfolio.length.toString()} icon={<PieChart className="h-4 w-4 text-primary" />} />
+        <MetricCard label="Holdings" value={portfolio.length.toString()} />
+        <MetricCard label="Used Balance" value={formatCurrency(wallet.used_balance)} />
+        <MetricCard label="Available" value={formatCurrency(wallet.available_balance)} />
       </div>
 
       {/* Allocation visual */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h2 className="font-semibold text-card-foreground mb-4">Allocation</h2>
-        <div className="flex h-6 rounded-full overflow-hidden">
-          {portfolio.map((h, i) => (
-            <div
-              key={h.symbol}
-              className="relative group"
-              style={{ width: `${h.allocation}%`, backgroundColor: COLORS[i % COLORS.length] }}
-              title={`${h.symbol}: ${h.allocation}%`}
-            >
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded text-xs font-medium bg-popover text-popover-foreground border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                {h.symbol}: {h.allocation}%
+      {portfolio.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h2 className="font-semibold text-card-foreground mb-4">Allocation</h2>
+          <div className="flex h-6 rounded-full overflow-hidden">
+            {portfolio.map((h, i) => (
+              <div
+                key={h.symbol}
+                className="relative group"
+                style={{ width: `${h.allocation}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                title={`${h.symbol}: ${h.allocation}%`}
+              >
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded text-xs font-medium bg-popover text-popover-foreground border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                  {h.symbol}: {h.allocation}%
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-3 mt-3">
+            {portfolio.map((h, i) => (
+              <div key={h.symbol} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                {h.symbol} ({h.allocation}%)
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-3 mt-3">
-          {portfolio.map((h, i) => (
-            <div key={h.symbol} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-              {h.symbol} ({h.allocation}%)
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Holdings Table */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border">
-          <h2 className="font-semibold text-card-foreground">Holdings</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" role="table">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Stock</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Qty</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Avg Price</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Current</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">P&L</th>
-                <th className="text-center px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Signal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {portfolio.map((h) => (
-                <tr key={h.symbol} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <Link to={`/stock/${h.symbol}`} className="font-medium text-foreground hover:text-primary">{h.symbol}</Link>
-                    <div className="text-xs text-muted-foreground">{h.name}</div>
-                  </td>
-                  <td className="text-right px-4 py-3 font-mono hidden sm:table-cell">{h.quantity}</td>
-                  <td className="text-right px-4 py-3 font-mono hidden md:table-cell">{formatCurrency(h.avgPrice)}</td>
-                  <td className="text-right px-4 py-3 font-mono">{formatCurrency(h.currentPrice)}</td>
-                  <td className={`text-right px-4 py-3 font-mono ${h.pnl >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
-                    {formatCurrency(h.pnl)}
-                    <div className="text-xs">{formatPercent(h.pnlPercent)}</div>
-                  </td>
-                  <td className="text-center px-4 py-3 hidden lg:table-cell"><SignalBadge signal={h.signal} /></td>
+      {portfolio.length > 0 ? (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <h2 className="font-semibold text-card-foreground">Holdings</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" role="table">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Stock</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Qty</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Avg Price</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Current</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">P&L</th>
+                  <th className="text-center px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Signal</th>
+                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {portfolio.map((h) => (
+                  <tr key={h.symbol} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <Link to={`/stock/${h.symbol}`} className="font-medium text-foreground hover:text-primary">
+                        {h.symbol}
+                      </Link>
+                      <div className="text-xs text-muted-foreground">{h.name}</div>
+                    </td>
+                    <td className="text-right px-4 py-3 font-mono hidden sm:table-cell">{h.quantity}</td>
+                    <td className="text-right px-4 py-3 font-mono hidden md:table-cell">{formatCurrency(h.avgPrice)}</td>
+                    <td className="text-right px-4 py-3 font-mono">{formatCurrency(h.currentPrice)}</td>
+                    <td className={`text-right px-4 py-3 font-mono ${h.pnl >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
+                      {formatCurrency(h.pnl)}
+                      <div className="text-xs">{formatPercent(h.pnlPercent)}</div>
+                    </td>
+                    <td className="text-center px-4 py-3 hidden lg:table-cell">
+                      <SignalBadge signal={h.signal} />
+                    </td>
+                    <td className="text-center px-4 py-3">
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => handleBuy(h)}
+                          className="p-2 rounded bg-green-600/20 hover:bg-green-600/30 text-green-400 transition"
+                          title="Buy"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleSell(h)}
+                          className="p-2 rounded bg-red-600/20 hover:bg-red-600/30 text-red-400 transition"
+                          title="Sell"
+                        >
+                          <Send className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+          <p className="text-muted-foreground">No holdings yet. Start trading to build your portfolio.</p>
+          <button
+            onClick={() => setWalletOpen(true)}
+            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
+          >
+            Add Funds
+          </button>
+        </div>
+      )}
+
+      {/* Recent Transactions */}
+      {transactions.length > 0 && (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <h2 className="font-semibold text-card-foreground">Recent Transactions</h2>
+          </div>
+          <div className="divide-y divide-border">
+            {transactions.map((t: Transaction) => (
+              <div key={t.id} className="px-4 py-3 hover:bg-accent/30 transition flex items-center justify-between text-sm">
+                <div className="flex-1">
+                  <p className="font-medium text-foreground">{t.type} {t.symbol && `- ${t.symbol}`}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className={`font-medium ${t.type === 'BUY' || t.type === 'DEPOSIT' ? 'text-red-400' : 'text-green-400'}`}>
+                    {t.type === 'BUY' || t.type === 'DEPOSIT' ? '-' : '+'} ₹{t.total_amount.toFixed(2)}
+                  </p>
+                  <p className={`text-xs ${t.status === 'SUCCESS' ? 'text-green-500' : t.status === 'FAILED' ? 'text-red-500' : 'text-yellow-500'}`}>
+                    {t.status}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      <WalletModal
+        isOpen={walletOpen}
+        onClose={() => setWalletOpen(false)}
+        token={token}
+        onSuccess={(msg) => showNotification('success', msg)}
+        onError={(msg) => showNotification('error', msg)}
+        onWalletUpdate={() => {
+          // Refresh portfolio
+        }}
+      />
+
+      {selectedStock && (
+        <TradingModal
+          isOpen={tradingOpen}
+          onClose={() => setTradingOpen(false)}
+          symbol={selectedStock.symbol}
+          currentPrice={selectedStock.price}
+          mode={tradingMode}
+          maxQuantity={selectedStock.quantity}
+          token={token}
+          onSuccess={(msg) => {
+            showNotification('success', msg);
+            // Refresh portfolio
+          }}
+          onError={(msg) => showNotification('error', msg)}
+        />
+      )}
     </div>
   );
 };
 
-export default React.memo(Portfolio);
+export default Portfolio;

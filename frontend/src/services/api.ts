@@ -132,7 +132,7 @@ interface BackendPredictionData {
 }
 
 // ============ DATA TRANSFORMERS ============
-function transformBackendStock(data: BackendStockData): StockSignal {
+function transformBackendStock(data: any): StockSignal {
   // Normalize confidence from 0-100 range to 0-1 range
   let confidence = data.confidence_score || data.confidence || data.prob || 50;
   if (confidence > 1) {
@@ -146,13 +146,16 @@ function transformBackendStock(data: BackendStockData): StockSignal {
   const change = data.change || (data.entry_price && price ? price - data.entry_price : 0);
   const changePercent = data.change_pct || data.changePercent || (data.entry_price && price ? ((price - data.entry_price) / data.entry_price) * 100 : 0);
   
+  // Handle both 'signal' and 'signal_type' field names
+  const signal = (data.signal || data.signal_type || 'NEUTRAL').toUpperCase() as 'BUY' | 'SELL' | 'NEUTRAL';
+  
   return {
     symbol: data.symbol,
     name: data.name || data.symbol,
     price,
     change,
     changePercent,
-    signal: data.signal || 'NEUTRAL',
+    signal,
     confidence,
     volume: data.volume || 0,
   };
@@ -458,4 +461,162 @@ export const fetchStockPrediction = async (
   }
 };
 
+// ============ AUTHENTICATION FUNCTIONS ============
+
+export interface AuthResponse {
+  token: string;
+  email: string;
+  tier: string;
+  is_admin: boolean;
+}
+
+export const signup = async (email: string, password: string, name?: string): Promise<AuthResponse> => {
+  const response = await api.post('/auth/signup', { email, password, name: name || email.split('@')[0] });
+  setAuthToken(response.data.token);
+  return response.data;
+};
+
+export const login = async (email: string, password: string): Promise<AuthResponse> => {
+  const response = await api.post('/auth/login', { email, password });
+  setAuthToken(response.data.token);
+  return response.data;
+};
+
+export const getCurrentUser = async (token: string): Promise<any> => {
+  const response = await api.get('/auth/me', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
+// ============ WALLET FUNCTIONS ============
+
+export interface Wallet {
+  balance: number;
+  available_balance: number;
+  used_balance: number;
+}
+
+export const getWallet = async (token: string): Promise<Wallet> => {
+  const response = await api.get('/wallet', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
+export const addDemoFunds = async (token: string, amount: number): Promise<any> => {
+  const response = await api.post('/wallet/add-funds', { amount }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
+// ============ TRADING FUNCTIONS ============
+
+export const buyStock = async (
+  token: string,
+  symbol: string,
+  quantity: number,
+  price: number,
+  confidence_score?: number
+): Promise<any> => {
+  const response = await api.post(
+    '/trading/buy',
+    { symbol, quantity, price, confidence_score },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return response.data;
+};
+
+export const sellStock = async (
+  token: string,
+  symbol: string,
+  quantity: number,
+  price: number
+): Promise<any> => {
+  const response = await api.post(
+    '/trading/sell',
+    { symbol, quantity, price },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return response.data;
+};
+
+// ============ PORTFOLIO FUNCTIONS ============
+
+export interface Transaction {
+  id: number;
+  type: string;
+  symbol?: string;
+  quantity?: number;
+  price?: number;
+  total_amount: number;
+  status: string;
+  created_at: string;
+}
+
+export interface Portfolio {
+  wallet: Wallet;
+  holdings: PortfolioHolding[];
+  total_value: number;
+  total_invested: number;
+  total_pnl: number;
+  total_pnl_percent: number;
+}
+
+export const getPortfolio = async (token: string): Promise<Portfolio> => {
+  const response = await api.get('/portfolio', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
+export const getTransactions = async (token: string, limit: number = 50): Promise<Transaction[]> => {
+  const response = await api.get(`/portfolio/transactions?limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
+// ============ RAZORPAY FUNCTIONS ============
+
+export interface RazorpayOrder {
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+}
+
+export const createPaymentOrder = async (token: string, amount: number, phone?: string): Promise<RazorpayOrder> => {
+  const response = await api.post(
+    '/payment/create-order',
+    { amount, phone },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return response.data;
+};
+
+export interface VerifyPaymentRequest {
+  order_id: string;
+  payment_id: string;
+  signature: string;
+}
+
+export const verifyPayment = async (token: string, data: VerifyPaymentRequest): Promise<any> => {
+  const response = await api.post('/payment/verify', data, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
+// Set authorization header globally when token is available
+export const setAuthToken = (token: string | null | undefined) => {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+};
+
 export default api;
+
