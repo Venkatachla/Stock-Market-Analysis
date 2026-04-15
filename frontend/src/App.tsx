@@ -22,18 +22,52 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout>
-          <Suspense fallback={<LoadingState />}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/stock/:symbol" element={<StockDetail />} />
-              <Route path="/discovery" element={<Discovery />} />
-              <Route path="/portfolio" element={<Portfolio />} />
-              <Route path="/risk" element={<RiskOS />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </AppLayout>
+        <Suspense fallback={<LoadingState />}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <AppLayout>
+                  <Dashboard />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/stock/:symbol"
+              element={
+                <AppLayout>
+                  <StockDetail />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/discovery"
+              element={
+                <AppLayout>
+                  <Discovery />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/portfolio"
+              element={
+                <AppLayout>
+                  <Portfolio />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/risk"
+              element={
+                <AppLayout>
+                  <RiskOS />
+                </AppLayout>
+              }
+            />
+
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
