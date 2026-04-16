@@ -22,26 +22,31 @@ const Portfolio: React.FC = () => {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const { data: portfolioData } = usePolling(
-    () => (token ? getPortfolio(token).catch(() => ({ wallet: { balance: 0, available_balance: 0, used_balance: 0 }, holdings: mockPortfolio, total_value: 0, total_invested: 0, total_pnl: 0, total_pnl_percent: 0 })) : Promise.resolve({ wallet: { balance: 0, available_balance: 0, used_balance: 0 }, holdings: mockPortfolio, total_value: 0, total_invested: 0, total_pnl: 0, total_pnl_percent: 0 })),
+    () => (token ? getPortfolio(token) : Promise.reject('No token')),
     30000
   );
 
   const { data: transactionsData } = usePolling(
-    () => (token ? getTransactions(token, 10).catch(() => []) : Promise.resolve([])),
+    () => (token ? getTransactions(token, 10) : Promise.resolve([])),
     60000
   );
 
-  const portfolio = portfolioData?.holdings ?? mockPortfolio;
-  const wallet = portfolioData?.wallet ?? { balance: 0, available_balance: 0, used_balance: 0 };
+  // Use real portfolio data from backend
+  const portfolio = portfolioData?.holdings ?? [];
+  const wallet = portfolioData ? {
+    balance: portfolioData.wallet_balance,
+    available_balance: portfolioData.wallet_balance,
+    used_balance: 0
+  } : { balance: 0, available_balance: 0, used_balance: 0 };
   const transactions = transactionsData ?? [];
 
   const stats = useMemo(() => {
     const totalValue = portfolioData?.total_value ?? 0;
-    const totalInvested = portfolioData?.total_invested ?? 0;
-    const totalPnl = portfolioData?.total_pnl ?? 0;
-    const totalPnlPercent = portfolioData?.total_pnl_percent ?? 0;
+    const totalInvested = portfolio.reduce((sum, h) => sum + (h.total_investment || 0), 0);
+    const totalPnl = totalValue - totalInvested;
+    const totalPnlPercent = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
     return { totalValue, totalInvested, totalPnl, totalPnlPercent };
-  }, [portfolioData]);
+  }, [portfolioData, portfolio]);
 
   const handleBuy = (holding: PortfolioHolding | { symbol: string; price: number }) => {
     setSelectedStock({

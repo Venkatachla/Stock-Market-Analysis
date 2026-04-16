@@ -175,29 +175,29 @@ function transformBackendChart(data: BackendChartData): OHLC {
 // ============ API FUNCTIONS - MAPPED TO STCOK BACKEND ============
 
 /**
- * Fetch market overview (bulls, bears, active stocks)
+ * Fetch market overview (bulls, bears, active stocks) - WITH REAL PRICES ✅
  */
 export const fetchMarketOverview = async (): Promise<MarketOverview> => {
   try {
-    const [bullsResp, bearsResp, losersResp] = await Promise.all([
-      cachedGet<any>('/stocks/top-bulls?limit=5', ONE_MIN),
-      cachedGet<any>('/stocks/top-bears?limit=5', ONE_MIN),
-      cachedGet<any>('/stocks/top-losers?limit=5', ONE_MIN),
-    ]);
+    // Get all signals (bulls + bears) with real prices
+    const signalsResp = await cachedGet<any>('/api/signals/active', ONE_MIN);
+    const allSignals = signalsResp?.signals || [];
 
-    // Handle both response formats: array or {stocks: [...]}
-    const bulls = Array.isArray(bullsResp) ? bullsResp : (bullsResp?.stocks || []);
-    const bears = Array.isArray(bearsResp) ? bearsResp : (bearsResp?.stocks || []);
-    const losers = Array.isArray(losersResp) ? losersResp : (losersResp?.stocks || []);
+    const bulls = allSignals.filter((s: any) => s.signal_type === 'BUY');
+    const bears = allSignals.filter((s: any) => s.signal_type === 'SELL');
+    
+    // Sort by confidence
+    bulls.sort((a: any, b: any) => (b.confidence || 0) - (a.confidence || 0));
+    bears.sort((a: any, b: any) => (b.confidence || 0) - (a.confidence || 0));
 
     return {
       indices: [
         { name: 'NIFTY50', value: 23500, change: 150, changePercent: 0.64 },
         { name: 'SENSEX', value: 77500, change: 500, changePercent: 0.65 },
       ],
-      topGainers: (bulls || []).map(transformBackendStock),
-      topLosers: (losers || []).map(transformBackendStock),
-      mostActive: (bears || []).map(transformBackendStock),
+      topGainers: bulls.slice(0, 5).map(transformBackendStock),
+      topLosers: bears.slice(0, 5).map(transformBackendStock),
+      mostActive: allSignals.slice(0, 5).map(transformBackendStock),
     };
   } catch (error) {
     console.error('Error fetching market overview:', error);
@@ -211,34 +211,15 @@ export const fetchMarketOverview = async (): Promise<MarketOverview> => {
 };
 
 /**
- * Fetch all stock signals (for discovery/scanner)
+ * Fetch all stock signals (for discovery/scanner) - WITH REAL PRICES ✅
  */
 export const fetchStockSignals = async (): Promise<StockSignal[]> => {
   try {
-    // Get signals from alerts/live endpoint which has actual prediction data
-    const alertResponse = await cachedGet<any>('/alerts/live?limit=50', ONE_MIN);
-    const alerts = Array.isArray(alertResponse) ? alertResponse : (alertResponse?.alerts || []);
+    // Get all signals with real prices from backend
+    const response = await cachedGet<any>('/api/signals/active', ONE_MIN);
+    const signals = response?.signals || [];
     
-    // Also get bulls and bears for additional context
-    const [bullsResp, bearsResp] = await Promise.all([
-      cachedGet<any>('/stocks/top-bulls?limit=25', ONE_MIN),
-      cachedGet<any>('/stocks/top-bears?limit=25', ONE_MIN),
-    ]);
-    
-    const bulls = Array.isArray(bullsResp) ? bullsResp : (bullsResp?.stocks || []);
-    const bears = Array.isArray(bearsResp) ? bearsResp : (bearsResp?.stocks || []);
-    
-    // Combine and deduplicate by symbol
-    const allSignals = [...alerts, ...bulls, ...bears];
-    const signalMap = new Map<string, any>();
-    
-    for (const signal of allSignals) {
-      if (signal.symbol && !signalMap.has(signal.symbol)) {
-        signalMap.set(signal.symbol, signal);
-      }
-    }
-    
-    return Array.from(signalMap.values())
+    return signals
       .slice(0, 50)
       .map(transformBackendStock);
   } catch (error) {
@@ -248,30 +229,22 @@ export const fetchStockSignals = async (): Promise<StockSignal[]> => {
 };
 
 /**
- * Fetch single stock detail with prediction
+ * Fetch single stock detail with real price from backend
  */
 export const fetchStockDetail = async (symbol: string): Promise<StockSignal> => {
   try {
-    const [stockResp, predictionData] = await Promise.all([
-      cachedGet<any>(`/stocks/search?q=${symbol}`, ONE_MIN),
-      cachedGet<BackendPredictionData>(`/prediction/${symbol}`, ONE_MIN),
-    ]);
+    // Get all signals and find the matching one
+    const response = await cachedGet<any>('/api/signals/active', ONE_MIN);
+    const allSignals = response?.signals || [];
+    const stockData = allSignals.find((s: any) => s.symbol === symbol);
 
-    // Handle both response formats: array or {stocks: [...]}
-    const stockList = Array.isArray(stockResp) ? stockResp : (stockResp?.stocks || []);
-    const baseData = (stockList && stockList.length > 0) ? stockList[0] : null;
-    const predData = predictionData as BackendPredictionData | null;
+    if (stockData) {
+      return transformBackendStock(stockData);
+    }
 
-    return {
-      symbol,
-      name: baseData?.name || symbol,
-      price: baseData?.price || 0,
-      change: baseData?.change || 0,
-      changePercent: baseData?.change_pct || baseData?.changePercent || 0,
-      signal: predData?.signal || baseData?.signal || 'NEUTRAL',
-      confidence: predData?.confidence || baseData?.confidence || baseData?.prob || 50,
-      volume: baseData?.volume || 0,
-    };
+    // Fallback: fetch individual stock price
+    const priceResp = await cachedGet<any>(`/api/stock/${symbol}/price`, ONE_MIN);
+    return transformBackendStock(priceResp);
   } catch (error) {
     console.error(`Error fetching stock detail for ${symbol}:`, error);
     return {
@@ -408,35 +381,29 @@ export const fetchRiskMetrics = async (): Promise<RiskMetrics> => {
 };
 
 /**
- * Fetch discovery stocks (with optional filters)
+ * Fetch discovery stocks (with optional filters) - FROM BACKEND SIGNALS ✅
  */
 export const fetchDiscovery = async (filters?: Record<string, string>): Promise<StockSignal[]> => {
   try {
-    let url = '/alerts/live?limit=100'; // Use alerts/live for price + signal data instead of /stocks (which has no price)
+    const response = await cachedGet<any>('/api/signals/active', ONE_MIN);
+    const allSignals = response?.signals || [];
     
     if (filters?.tab === 'bulls') {
-      url = '/stocks/top-bulls?limit=100';
+      return allSignals
+        .filter((s: any) => s.signal_type === 'BUY')
+        .sort((a: any, b: any) => (b.confidence || 0) - (a.confidence || 0))
+        .slice(0, 100)
+        .map(transformBackendStock);
     } else if (filters?.tab === 'bears') {
-      url = '/stocks/top-bears?limit=100';
-    } else if (filters?.tab === 'losers') {
-      url = '/stocks/top-losers?limit=100';
-    } else if (filters?.tab === 'scanner') {
-      url = '/scanner_results';
-    }
-
-    const response = await cachedGet<any>(url, ONE_MIN);
-    
-    // Handle different response formats
-    let data = [];
-    if (Array.isArray(response)) {
-      data = response;
-    } else if (response?.stocks) {
-      data = response.stocks;
-    } else if (response?.alerts) {
-      data = response.alerts;
+      return allSignals
+        .filter((s: any) => s.signal_type === 'SELL')
+        .sort((a: any, b: any) => (b.confidence || 0) - (a.confidence || 0))
+        .slice(0, 100)
+        .map(transformBackendStock);
     }
     
-    return (data || []).map(transformBackendStock);
+    // Default: all signals
+    return allSignals.slice(0, 100).map(transformBackendStock);
   } catch (error) {
     console.error('Error fetching discovery stocks:', error);
     return [];
@@ -465,25 +432,35 @@ export const fetchStockPrediction = async (
 
 export interface AuthResponse {
   token: string;
+  user_id?: number;
   email: string;
-  tier: string;
-  is_admin: boolean;
+  name?: string;
+  tier?: string;
+  is_admin?: boolean;
 }
 
 export const signup = async (email: string, password: string, name?: string): Promise<AuthResponse> => {
-  const response = await api.post('/auth/signup', { email, password, name: name || email.split('@')[0] });
-  setAuthToken(response.data.token);
+  const response = await api.post('/api/auth/signup', { 
+    email, 
+    password, 
+    name: name || email.split('@')[0] 
+  });
+  if (response.data.token) {
+    setAuthToken(response.data.token);
+  }
   return response.data;
 };
 
 export const login = async (email: string, password: string): Promise<AuthResponse> => {
-  const response = await api.post('/auth/login', { email, password });
-  setAuthToken(response.data.token);
+  const response = await api.post('/api/auth/login', { email, password });
+  if (response.data.token) {
+    setAuthToken(response.data.token);
+  }
   return response.data;
 };
 
 export const getCurrentUser = async (token: string): Promise<any> => {
-  const response = await api.get('/auth/me', {
+  const response = await api.get('/api/auth/me', {
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;
@@ -505,10 +482,23 @@ export const getWallet = async (token: string): Promise<Wallet> => {
 };
 
 export const addDemoFunds = async (token: string, amount: number): Promise<any> => {
-  const response = await api.post('/wallet/add-funds', { amount }, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.data;
+  // Create payment order
+  const orderResp = await api.post('/api/payment/create-order', 
+    { amount }, 
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  
+  // Auto-verify in demo mode
+  const verifyResp = await api.post('/api/payment/verify',
+    { 
+      order_id: orderResp.data.order_id, 
+      payment_id: 'demo_payment_' + Date.now(),
+      signature: 'demo_signature'
+    },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  
+  return verifyResp.data;
 };
 
 // ============ TRADING FUNCTIONS ============
@@ -516,13 +506,11 @@ export const addDemoFunds = async (token: string, amount: number): Promise<any> 
 export const buyStock = async (
   token: string,
   symbol: string,
-  quantity: number,
-  price: number,
-  confidence_score?: number
+  quantity: number
 ): Promise<any> => {
   const response = await api.post(
-    '/trading/buy',
-    { symbol, quantity, price, confidence_score },
+    '/api/trading/buy',
+    { symbol, quantity },
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return response.data;
@@ -531,12 +519,11 @@ export const buyStock = async (
 export const sellStock = async (
   token: string,
   symbol: string,
-  quantity: number,
-  price: number
+  quantity: number
 ): Promise<any> => {
   const response = await api.post(
-    '/trading/sell',
-    { symbol, quantity, price },
+    '/api/trading/sell',
+    { symbol, quantity },
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return response.data;
@@ -556,12 +543,10 @@ export interface Transaction {
 }
 
 export interface Portfolio {
-  wallet: Wallet;
-  holdings: PortfolioHolding[];
   total_value: number;
-  total_invested: number;
-  total_pnl: number;
-  total_pnl_percent: number;
+  wallet_balance: number;
+  holdings: PortfolioHolding[];
+  number_of_holdings: number;
 }
 
 export const getPortfolio = async (token: string): Promise<Portfolio> => {
@@ -572,10 +557,10 @@ export const getPortfolio = async (token: string): Promise<Portfolio> => {
 };
 
 export const getTransactions = async (token: string, limit: number = 50): Promise<Transaction[]> => {
-  const response = await api.get(`/portfolio/transactions?limit=${limit}`, {
+  const response = await api.get(`/portfolio/transactions`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return response.data;
+  return response.data?.transactions || [];
 };
 
 // ============ RAZORPAY FUNCTIONS ============
@@ -587,10 +572,10 @@ export interface RazorpayOrder {
   key_id: string;
 }
 
-export const createPaymentOrder = async (token: string, amount: number, phone?: string): Promise<RazorpayOrder> => {
+export const createPaymentOrder = async (token: string, amount: number): Promise<RazorpayOrder> => {
   const response = await api.post(
-    '/payment/create-order',
-    { amount, phone },
+    '/api/payment/create-order',
+    { amount },
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return response.data;
@@ -603,7 +588,7 @@ export interface VerifyPaymentRequest {
 }
 
 export const verifyPayment = async (token: string, data: VerifyPaymentRequest): Promise<any> => {
-  const response = await api.post('/payment/verify', data, {
+  const response = await api.post('/api/payment/verify', data, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;

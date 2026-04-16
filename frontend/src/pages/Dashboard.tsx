@@ -13,15 +13,21 @@ const Dashboard: React.FC = () => {
   const [promptResults, setPromptResults] = useState<any>(null);
   const [promptLoading, setPromptLoading] = useState(false);
 
+  // Fetch real market data from backend (autofetch every 30 seconds)
   const { data: marketData, loading: mLoading, error: mError, retry: mRetry } = usePolling<MarketOverview>(
-    () => fetchMarketOverview().catch(() => mockMarketOverview), 30000
+    () => fetchMarketOverview(),
+    30000
   );
+  
+  // Fetch real stock signals from backend (autofetch every 30 seconds)
   const { data: signalsData, loading: sLoading, error: sError, retry: sRetry } = usePolling<StockSignal[]>(
-    () => fetchStockSignals().catch(() => mockSignals), 30000
+    () => fetchStockSignals(),
+    30000
   );
 
-  const market = marketData ?? mockMarketOverview;
-  const signals = signalsData ?? mockSignals;
+  // Use real data, no fallback to mock
+  const market = marketData ?? { indices: [], topGainers: [], topLosers: [], mostActive: [] };
+  const signals = signalsData ?? [];
 
   const stats = useMemo(() => {
     const buyCount = signals.filter(s => s.signal === 'BUY').length;
@@ -44,12 +50,13 @@ const Dashboard: React.FC = () => {
       setPromptResults(data);
     } catch (error) {
       console.error('Prompt error:', error);
-      // Fallback: search locally
+      // Fallback: search locally in signals
       const q = prompt.toLowerCase();
       const results = signals.filter(s => 
-        s.symbol.includes(q) || s.name?.includes(q) || 
-        q.includes('buy') && s.signal === 'BUY' ||
-        q.includes('sell') && s.signal === 'SELL'
+        s.symbol.toLowerCase().includes(q) || 
+        (s.name && s.name.toLowerCase().includes(q)) || 
+        (q.includes('buy') && s.signal === 'BUY') ||
+        (q.includes('sell') && s.signal === 'SELL')
       );
       setPromptResults({ query: prompt, results, message: `Found ${results.length} matching signals` });
     } finally {

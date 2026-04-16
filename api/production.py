@@ -436,14 +436,14 @@ def update_wallet_balance(user_id: int, amount: float, operation: str = "add"):
 # ======================== MOCK STOCK DATA ========================
 
 STOCK_SIGNALS = [
-    {"symbol": "RELIANCE", "signal_type": "BUY", "confidence": 0.85, "reason": "Bullish breakout on daily"},
-    {"symbol": "TCS", "signal_type": "BUY", "confidence": 0.78, "reason": "RSI oversold, reversal pattern"},
-    {"symbol": "INFY", "signal_type": "SELL", "confidence": 0.72, "reason": "Bearish divergence"},
-    {"symbol": "WIPRO", "signal_type": "BUY", "confidence": 0.81, "reason": "Golden cross on weekly"},
-    {"symbol": "HDFCBANK", "signal_type": "SELL", "confidence": 0.68, "reason": "Support break below 1500"},
-    {"symbol": "ICICIBANK", "signal_type": "BUY", "confidence": 0.75, "reason": "Hammer pattern on daily"},
-    {"symbol": "BAJAJFINSV", "signal_type": "BUY", "confidence": 0.79, "reason": "Volume breakout"},
-    {"symbol": "LT", "signal_type": "SELL", "confidence": 0.71, "reason": "Resistance rejected twice"},
+    {"symbol": "RELIANCE", "name": "Reliance Industries", "price": 2456.75, "change": 34.20, "change_pct": 1.41, "signal_type": "BUY", "confidence": 0.85, "reason": "Bullish breakout on daily", "volume": 12500000},
+    {"symbol": "TCS", "name": "Tata Consultancy Services", "price": 3890.50, "change": -22.30, "change_pct": -0.57, "signal_type": "BUY", "confidence": 0.78, "reason": "RSI oversold, reversal pattern", "volume": 3200000},
+    {"symbol": "INFY", "name": "Infosys Limited", "price": 1456.80, "change": -18.45, "change_pct": -1.25, "signal_type": "SELL", "confidence": 0.72, "reason": "Bearish divergence", "volume": 6700000},
+    {"symbol": "WIPRO", "name": "Wipro Limited", "price": 498.35, "change": 12.10, "change_pct": 2.48, "signal_type": "BUY", "confidence": 0.81, "reason": "Golden cross on weekly", "volume": 8900000},
+    {"symbol": "HDFCBANK", "name": "HDFC Bank", "price": 1678.25, "change": 15.60, "change_pct": 0.94, "signal_type": "SELL", "confidence": 0.68, "reason": "Support break below 1500", "volume": 9200000},
+    {"symbol": "ICICIBANK", "name": "ICICI Bank", "price": 1023.40, "change": 8.90, "change_pct": 0.88, "signal_type": "BUY", "confidence": 0.75, "reason": "Hammer pattern on daily", "volume": 9800000},
+    {"symbol": "BAJAJFINSV", "name": "Bajaj Finserv", "price": 1734.65, "change": 28.50, "change_pct": 1.67, "signal_type": "BUY", "confidence": 0.79, "reason": "Volume breakout", "volume": 4500000},
+    {"symbol": "LT", "name": "Larsen & Toubro", "price": 3245.90, "change": -45.20, "change_pct": -1.37, "signal_type": "SELL", "confidence": 0.71, "reason": "Resistance rejected twice", "volume": 5600000},
 ]
 
 # ======================== AUTH ENDPOINTS ========================

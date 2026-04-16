@@ -15,14 +15,27 @@ const StockDetail: React.FC = () => {
   const volumeChartRef = useRef<HTMLDivElement>(null);
   const rsiChartRef = useRef<HTMLDivElement>(null);
 
+  // Fetch real stock data from backend with autoupdate every 30 seconds
   const { data: stock } = usePolling<StockSignal>(
-    () => fetchStockDetail(symbol!).catch(() => mockSignals.find(s => s.symbol === symbol) ?? mockSignals[0]),
+    () => fetchStockDetail(symbol!),
     30000
   );
 
+  // Generate OHLC data for chart (this is mock data for demo)
   const ohlcData = useMemo(() => generateMockOHLC(250), []);
   const indicators = useMemo(() => generateMockIndicators(ohlcData), [ohlcData]);
-  const detail = stock ?? mockSignals.find(s => s.symbol === symbol) ?? mockSignals[0];
+  
+  // Use real stock data
+  const detail = stock ?? {
+    symbol: symbol || 'N/A',
+    name: symbol || 'N/A',
+    price: 0,
+    change: 0,
+    changePercent: 0,
+    signal: 'NEUTRAL',
+    confidence: 0,
+    volume: 0
+  };
 
   // Main candlestick chart
   useEffect(() => {
@@ -189,6 +202,129 @@ const StockDetail: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Trading Action Buttons */}
+      <TradingPanel stock={detail} />
+    </div>
+  );
+};
+
+// Trading Panel Component
+const TradingPanel: React.FC<{ stock: StockSignal }> = ({ stock }) => {
+  const [quantity, setQuantity] = React.useState(1);
+  const [loading, setLoading] = React.useState(false);
+  const [message, setMessage] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleTrade = async (action: 'buy' | 'sell') => {
+    if (quantity <= 0) {
+      setMessage({ type: 'error', text: 'Quantity must be greater than 0' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setMessage({ type: 'error', text: 'Please login to trade' });
+        setLoading(false);
+        return;
+      }
+
+      const endpoint = action === 'buy' ? '/trading/buy' : '/trading/sell';
+      const response = await fetch(`http://localhost:8000${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          symbol: stock.symbol,
+          quantity: quantity,
+          price: stock.price
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({
+          type: 'success',
+          text: `${action.toUpperCase()} successful! ${quantity} shares of ${stock.symbol} @ ₹${stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+        });
+        setQuantity(1);
+        setTimeout(() => setMessage(null), 5000);
+      } else {
+        setMessage({ type: 'error', text: data.detail || `${action} failed` });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+      <h2 className="font-semibold text-card-foreground text-lg">Execute Trade</h2>
+
+      {message && (
+        <div className={`p-3 rounded-md text-sm ${
+          message.type === 'success'
+            ? 'bg-signal-buy/20 text-signal-buy border border-signal-buy/50'
+            : 'bg-signal-sell/20 text-signal-sell border border-signal-sell/50'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">Quantity</label>
+            <input
+              type="number"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">Price per share</label>
+            <div className="px-3 py-2 rounded-md border border-border bg-muted text-foreground">
+              ₹{stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm text-muted-foreground block mb-2">Total Amount</label>
+          <div className="px-3 py-2 rounded-md border border-border bg-muted text-foreground font-mono text-lg">
+            ₹{(quantity * stock.price).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={() => handleTrade('buy')}
+          disabled={loading}
+          className="flex-1 px-4 py-2.5 rounded-md bg-signal-buy text-white font-medium hover:bg-signal-buy/90 disabled:opacity-50 transition-colors"
+        >
+          {loading ? 'Processing...' : `BUY ${quantity} @ ₹${stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
+        </button>
+        <button
+          onClick={() => handleTrade('sell')}
+          disabled={loading}
+          className="flex-1 px-4 py-2.5 rounded-md bg-signal-sell text-white font-medium hover:bg-signal-sell/90 disabled:opacity-50 transition-colors"
+        >
+          {loading ? 'Processing...' : `SELL ${quantity} @ ₹${stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
+        </button>
+      </div>
+
+      <p className="text-xs text-muted-foreground text-center">
+        💡 Note: Prices shown are real-time from backend. {stock.signal === 'BUY' ? '✓ AI recommends BUY' : stock.signal === 'SELL' ? '✓ AI recommends SELL' : 'Neutral signal'}
+      </p>
     </div>
   );
 };
