@@ -12,17 +12,32 @@ const Dashboard: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [promptResults, setPromptResults] = useState<any>(null);
   const [promptLoading, setPromptLoading] = useState(false);
+  const [pollInfo, setPollInfo] = useState<{lastUpdate: string, pollCount: number}>({lastUpdate: '', pollCount: 0});
 
-  // Fetch real market data from backend (autofetch every 30 seconds)
+  // 🔄 REAL-TIME MARKET DATA - Poll every 10 seconds (was 30s)
   const { data: marketData, loading: mLoading, error: mError, retry: mRetry } = usePolling<MarketOverview>(
-    () => fetchMarketOverview(),
-    30000
+    () => {
+      console.log('📊 Fetching market data...');
+      setPollInfo(prev => ({
+        lastUpdate: new Date().toLocaleTimeString(),
+        pollCount: prev.pollCount + 1
+      }));
+      return fetchMarketOverview();
+    },
+    10000  // ✅ Changed from 30000 to 10000 (10 seconds) for real-time updates
   );
   
-  // Fetch real stock signals from backend (autofetch every 30 seconds)
+  // 🔄 REAL-TIME STOCK SIGNALS - Poll every 8 seconds (was 30s)
   const { data: signalsData, loading: sLoading, error: sError, retry: sRetry } = usePolling<StockSignal[]>(
-    () => fetchStockSignals(),
-    30000
+    () => {
+      console.log('🎯 Fetching stock signals...');
+      setPollInfo(prev => ({
+        lastUpdate: new Date().toLocaleTimeString(),
+        pollCount: prev.pollCount + 1
+      }));
+      return fetchStockSignals();
+    },
+    8000  // ✅ Changed from 30000 to 8000 (8 seconds) for real-time dynamic predictions
   );
 
   // Use real data, no fallback to mock
@@ -30,8 +45,8 @@ const Dashboard: React.FC = () => {
   const signals = signalsData ?? [];
 
   const stats = useMemo(() => {
-    const buyCount = signals.filter(s => s.signal === 'BUY').length;
-    const sellCount = signals.filter(s => s.signal === 'SELL').length;
+    const buyCount = signals.filter(s => s.signal_type === 'BUY' || s.signal === 'BUY').length;
+    const sellCount = signals.filter(s => s.signal_type === 'SELL' || s.signal === 'SELL').length;
     return { buyCount, sellCount, total: signals.length };
   }, [signals]);
 
