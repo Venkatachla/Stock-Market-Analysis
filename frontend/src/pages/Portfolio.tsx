@@ -21,14 +21,14 @@ const Portfolio: React.FC = () => {
   const [tradingMode, setTradingMode] = useState<'BUY' | 'SELL'>('BUY');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const { data: portfolioData } = usePolling(
+  const { data: portfolioData, retry: retryPortfolio } = usePolling(
     () => (token ? getPortfolio(token) : Promise.reject('No token')),
-    30000
+    10000  // Updated from 30000ms to 10000ms (10 seconds) for real-time feedback
   );
 
-  const { data: transactionsData } = usePolling(
+  const { data: transactionsData, retry: retryTransactions } = usePolling(
     () => (token ? getTransactions(token, 10) : Promise.resolve([])),
-    60000
+    15000  // Updated from 60000ms to 15000ms (15 seconds) for real-time updates
   );
 
   // Use real portfolio data from backend
@@ -70,6 +70,18 @@ const Portfolio: React.FC = () => {
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Handle trade completion by refreshing portfolio immediately
+  const handleTradeComplete = (type: 'success' | 'error', message: string) => {
+    showNotification(type, message);
+    if (type === 'success') {
+      // Immediately refresh portfolio data after successful trade
+      setTimeout(() => {
+        retryPortfolio();
+        retryTransactions();
+      }, 500);  // Small delay to ensure backend has persisted the transaction
+    }
   };
 
   if (!token) {
@@ -183,44 +195,53 @@ const Portfolio: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {portfolio.map((h) => (
-                  <tr key={h.symbol} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <Link to={`/stock/${h.symbol}`} className="font-medium text-foreground hover:text-primary">
-                        {h.symbol}
-                      </Link>
-                      <div className="text-xs text-muted-foreground">{h.name}</div>
-                    </td>
-                    <td className="text-right px-4 py-3 font-mono hidden sm:table-cell">{h.quantity}</td>
-                    <td className="text-right px-4 py-3 font-mono hidden md:table-cell">{formatCurrency(h.avgPrice)}</td>
-                    <td className="text-right px-4 py-3 font-mono">{formatCurrency(h.currentPrice)}</td>
-                    <td className={`text-right px-4 py-3 font-mono ${h.pnl >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
-                      {formatCurrency(h.pnl)}
-                      <div className="text-xs">{formatPercent(h.pnlPercent)}</div>
-                    </td>
-                    <td className="text-center px-4 py-3 hidden lg:table-cell">
-                      <SignalBadge signal={h.signal} />
-                    </td>
-                    <td className="text-center px-4 py-3">
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => handleBuy(h)}
-                          className="p-2 rounded bg-green-600/20 hover:bg-green-600/30 text-green-400 transition"
-                          title="Buy"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleSell(h)}
-                          className="p-2 rounded bg-red-600/20 hover:bg-red-600/30 text-red-400 transition"
-                          title="Sell"
-                        >
-                          <Send className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {portfolio.map((h) => {
+                  // Ensure all fields have safe defaults
+                  const safePnl = h.pnl ?? 0;
+                  const safePnlPercent = h.pnlPercent ?? 0;
+                  const safeAvgPrice = h.avgPrice ?? 0;
+                  const safeCurrentPrice = h.currentPrice ?? 0;
+                  const safeQuantity = h.quantity ?? 0;
+                  
+                  return (
+                    <tr key={h.symbol} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <Link to={`/stock/${h.symbol}`} className="font-medium text-foreground hover:text-primary">
+                          {h.symbol}
+                        </Link>
+                        <div className="text-xs text-muted-foreground">{h.name || 'N/A'}</div>
+                      </td>
+                      <td className="text-right px-4 py-3 font-mono hidden sm:table-cell">{safeQuantity}</td>
+                      <td className="text-right px-4 py-3 font-mono hidden md:table-cell">{formatCurrency(safeAvgPrice)}</td>
+                      <td className="text-right px-4 py-3 font-mono">{formatCurrency(safeCurrentPrice)}</td>
+                      <td className={`text-right px-4 py-3 font-mono ${safePnl >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
+                        {formatCurrency(safePnl)}
+                        <div className="text-xs">{formatPercent(safePnlPercent)}</div>
+                      </td>
+                      <td className="text-center px-4 py-3 hidden lg:table-cell">
+                        <SignalBadge signal={h.signal || 'NEUTRAL'} />
+                      </td>
+                      <td className="text-center px-4 py-3">
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => handleBuy(h)}
+                            className="p-2 rounded bg-green-600/20 hover:bg-green-600/30 text-green-400 transition"
+                            title="Buy"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleSell(h)}
+                            className="p-2 rounded bg-red-600/20 hover:bg-red-600/30 text-red-400 transition"
+                            title="Sell"
+                          >
+                            <Send className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -286,11 +307,8 @@ const Portfolio: React.FC = () => {
           mode={tradingMode}
           maxQuantity={selectedStock.quantity}
           token={token}
-          onSuccess={(msg) => {
-            showNotification('success', msg);
-            // Refresh portfolio
-          }}
-          onError={(msg) => showNotification('error', msg)}
+          onSuccess={(msg) => handleTradeComplete('success', msg)}
+          onError={(msg) => handleTradeComplete('error', msg)}
         />
       )}
     </div>

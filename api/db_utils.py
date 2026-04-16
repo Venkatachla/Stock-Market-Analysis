@@ -130,6 +130,14 @@ def refund_to_wallet(db: Session, user_id: int, amount: float) -> bool:
 
 # ====================== HOLDING FUNCTIONS ======================
 
+def get_holding(db: Session, user_id: int, symbol: str) -> Optional[Holding]:
+    """Get existing holding WITHOUT creating (for SELL operations)"""
+    return db.query(Holding).filter(
+        Holding.user_id == user_id,
+        Holding.symbol == symbol
+    ).first()
+
+
 def get_or_create_holding(db: Session, user_id: int, symbol: str) -> Holding:
     """Get existing holding or create new one"""
     holding = db.query(Holding).filter(

@@ -88,6 +88,9 @@ class BuyRequest(BaseModel):
 class SellRequest(BaseModel):
     symbol: str
     quantity: int
+    
+    class Config:
+        extra = 'ignore'  # Ignore extra fields from frontend
 
 class WalletResponse(BaseModel):
     balance: float
@@ -614,101 +617,243 @@ def get_portfolio(authorization: Optional[str] = Header(None), db = Depends(get_
 
 @app.post("/api/trading/buy")
 def buy_stock(req: BuyRequest, authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Buy stock with wallet balance check"""
+    """Buy stock with wallet balance check and comprehensive error handling"""
+    print(f"\n[BUY] REQUEST RECEIVED: symbol={req.symbol}, quantity={req.quantity}")
+    
+    # Validate token
     user_id = verify_auth_token(authorization, db)
     if not user_id:
+        print(f"[BUY] ❌ UNAUTHORIZED - Invalid token")
         raise HTTPException(status_code=401, detail="Unauthorized")
     
+    print(f"[BUY] ✓ User authenticated: user_id={user_id}")
+    
+    # Validate request fields
+    if not req.symbol or req.quantity <= 0:
+        print(f"[BUY] ❌ INVALID REQUEST - symbol={req.symbol}, quantity={req.quantity}")
+        raise HTTPException(status_code=400, detail="Invalid symbol or quantity")
+    
     # Get current price
-    symbol_ns = req.symbol + ".NS"
-    price_data = get_stock_price(symbol_ns)
-    current_price = price_data["price"]
+    try:
+        symbol_ns = req.symbol + ".NS"
+        price_data = get_stock_price(symbol_ns)
+        current_price = price_data.get("price")
+        
+        if current_price is None or current_price <= 0:
+            print(f"[BUY] ❌ INVALID PRICE - symbol={symbol_ns}, price={current_price}")
+            raise HTTPException(status_code=400, detail="Failed to get current stock price")
+        
+        print(f"[BUY] ✓ Price fetched: symbol={req.symbol}, price={current_price}")
+    except Exception as e:
+        print(f"[BUY] ❌ PRICE LOOKUP ERROR - {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch price: {str(e)}")
     
     total_cost = req.quantity * current_price
+    print(f"[BUY] Transaction calculation: qty={req.quantity}, price={current_price}, total={total_cost}")
     
     # Check wallet balance
-    wallet = get_wallet(db, user_id)
-    if not wallet or wallet.balance < total_cost:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+    try:
+        wallet = get_wallet(db, user_id)
+        if not wallet or wallet.balance < total_cost:
+            print(f"[BUY] ❌ INSUFFICIENT BALANCE - balance={wallet.balance if wallet else 0}, required={total_cost}")
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+        
+        print(f"[BUY] ✓ Wallet check passed: available={wallet.balance}, required={total_cost}")
+    except Exception as e:
+        if "Insufficient balance" in str(e):
+            raise
+        print(f"[BUY] ❌ WALLET CHECK ERROR - {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to check wallet: {str(e)}")
     
     # Deduct from wallet
-    deduct_from_wallet(db, user_id, total_cost)
+    try:
+        deduct_from_wallet(db, user_id, total_cost)
+        wallet = get_wallet(db, user_id)
+        print(f"[BUY] ✓ Wallet deducted: new_balance={wallet.balance if wallet else 'N/A'}")
+    except Exception as e:
+        print(f"[BUY] ❌ WALLET DEDUCTION ERROR - {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to deduct from wallet: {str(e)}")
     
     # Get or create holding
-    holding = get_or_create_holding(db, user_id, req.symbol)
+    try:
+        holding = get_or_create_holding(db, user_id, req.symbol)
+        print(f"[BUY] ✓ Holding retrieved/created: symbol={req.symbol}")
+    except Exception as e:
+        print(f"[BUY] ❌ HOLDING RETRIEVAL ERROR - {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to get/create holding: {str(e)}")
     
     # Update holdings
-    update_holding_after_buy(db, holding, req.quantity, current_price)
+    try:
+        update_holding_after_buy(db, holding, req.quantity, current_price)
+        print(f"[BUY] ✓ Holdings updated: symbol={req.symbol}, new_quantity={holding.quantity + req.quantity}")
+    except Exception as e:
+        print(f"[BUY] ❌ HOLDINGS UPDATE ERROR - {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update holdings: {str(e)}")
     
     # Create transaction
-    transaction = create_transaction(
-        db=db,
-        user_id=user_id,
-        trans_type="BUY",
-        symbol=req.symbol,
-        quantity=req.quantity,
-        price=current_price,
-        total_amount=total_cost,
-        status="completed"
-    )
+    try:
+        transaction = create_transaction(
+            db=db,
+            user_id=user_id,
+            trans_type="BUY",
+            symbol=req.symbol,
+            quantity=req.quantity,
+            price=current_price,
+            total_amount=total_cost,
+            status="completed"
+        )
+        print(f"[BUY] ✓ Transaction created: id={transaction.id}")
+    except Exception as e:
+        print(f"[BUY] ❌ TRANSACTION CREATION ERROR - {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create transaction: {str(e)}")
     
-    return {
+    # Build response with updated portfolio state
+    response_data = {
         "status": "success",
         "transaction_id": transaction.id,
         "symbol": req.symbol,
         "quantity": req.quantity,
         "price": current_price,
         "total": total_cost,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "updated_wallet": {
+            "balance": wallet.balance if wallet else 0,
+            "available": wallet.balance if wallet else 0,
+            "used": total_cost
+        },
+        "updated_holding": {
+            "symbol": req.symbol,
+            "quantity": holding.quantity + req.quantity,
+            "avg_price": holding.avg_price,
+            "current_price": current_price,
+            "total_value": (holding.quantity + req.quantity) * current_price,
+            "pnl": ((holding.quantity + req.quantity) * current_price) - ((holding.quantity + req.quantity) * holding.avg_price),
+            "pnl_percent": (((current_price - holding.avg_price) / holding.avg_price) * 100) if holding.avg_price > 0 else 0
+        }
     }
+    
+    print(f"[BUY] ✅ SUCCESS - Transaction completed\n")
+    return response_data
 
 @app.post("/api/trading/sell")
 def sell_stock(req: SellRequest, authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Sell stock with holdings check"""
+    """Sell stock with holdings check and comprehensive error handling"""
+    print(f"\n[SELL] REQUEST RECEIVED: symbol={req.symbol}, quantity={req.quantity}")
+    
+    # Validate token
     user_id = verify_auth_token(authorization, db)
     if not user_id:
+        print(f"[SELL] ❌ UNAUTHORIZED - Invalid token")
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    # Get holding
-    holding = get_or_create_holding(db, user_id, req.symbol)
+    print(f"[SELL] ✓ User authenticated: user_id={user_id}")
+    
+    # Validate request fields
+    if not req.symbol or req.quantity <= 0:
+        print(f"[SELL] ❌ INVALID REQUEST - symbol={req.symbol}, quantity={req.quantity}")
+        raise HTTPException(status_code=400, detail="Invalid symbol or quantity")
+    
+    # Get holding (WITHOUT creating new one)
+    from api.db_utils import get_holding
+    holding = get_holding(db, user_id, req.symbol)
+    
+    print(f"[SELL] Holding lookup: symbol={req.symbol}, found={holding is not None}")
     
     if not holding or holding.quantity < req.quantity:
+        print(f"[SELL] ❌ INSUFFICIENT HOLDINGS - user_id={user_id}, symbol={req.symbol}, available={holding.quantity if holding else 0}, requested={req.quantity}")
         raise HTTPException(status_code=400, detail="Insufficient holdings")
     
+    print(f"[SELL] ✓ Holdings validated: available={holding.quantity}, selling={req.quantity}")
+    
     # Get current price
-    symbol_ns = req.symbol + ".NS"
-    price_data = get_stock_price(symbol_ns)
-    current_price = price_data["price"]
+    try:
+        symbol_ns = req.symbol + ".NS"
+        price_data = get_stock_price(symbol_ns)
+        current_price = price_data.get("price")
+        
+        if current_price is None or current_price <= 0:
+            print(f"[SELL] ❌ INVALID PRICE - symbol={symbol_ns}, price={current_price}")
+            raise HTTPException(status_code=400, detail="Failed to get current stock price")
+        
+        print(f"[SELL] ✓ Price fetched: symbol={req.symbol}, price={current_price}")
+    except Exception as e:
+        print(f"[SELL] ❌ PRICE LOOKUP ERROR - {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch price: {str(e)}")
     
     total_proceeds = req.quantity * current_price
+    print(f"[SELL] Transaction calculation: qty={req.quantity}, price={current_price}, total={total_proceeds}")
     
     # Update holdings
-    update_holding_after_sell(db, holding, req.quantity, current_price)
+    try:
+        from api.db_utils import update_holding_after_sell
+        update_holding_after_sell(db, holding, req.quantity, current_price)
+        print(f"[SELL] ✓ Holdings updated - new quantity={holding.quantity - req.quantity}")
+    except Exception as e:
+        print(f"[SELL] ❌ HOLDINGS UPDATE ERROR - {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update holdings: {str(e)}")
     
     # Add to wallet
-    add_to_wallet(db, user_id, total_proceeds)
+    try:
+        from api.db_utils import add_to_wallet, get_wallet
+        add_to_wallet(db, user_id, total_proceeds)
+        wallet = get_wallet(db, user_id)
+        print(f"[SELL] ✓ Wallet updated: proceeds={total_proceeds}, new_balance={wallet.balance if wallet else 'N/A'}")
+    except Exception as e:
+        print(f"[SELL] ❌ WALLET UPDATE ERROR - {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update wallet: {str(e)}")
     
     # Create transaction
-    transaction = create_transaction(
-        db=db,
-        user_id=user_id,
-        trans_type="SELL",
-        symbol=req.symbol,
-        quantity=req.quantity,
-        price=current_price,
-        total_amount=total_proceeds,
-        status="completed"
-    )
+    try:
+        from api.db_utils import create_transaction
+        transaction = create_transaction(
+            db=db,
+            user_id=user_id,
+            trans_type="SELL",
+            symbol=req.symbol,
+            quantity=req.quantity,
+            price=current_price,
+            total_amount=total_proceeds,
+            status="completed"
+        )
+        print(f"[SELL] ✓ Transaction created: id={transaction.id}")
+    except Exception as e:
+        print(f"[SELL] ❌ TRANSACTION CREATION ERROR - {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create transaction: {str(e)}")
     
-    return {
+    # Build response with updated portfolio state
+    response_data = {
         "status": "success",
         "transaction_id": transaction.id,
         "symbol": req.symbol,
         "quantity": req.quantity,
         "price": current_price,
         "total": total_proceeds,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "updated_wallet": {
+            "balance": wallet.balance if wallet else 0,
+            "available": wallet.balance if wallet else 0,
+            "used": 0
+        },
+        "updated_holding": {
+            "symbol": req.symbol,
+            "quantity": holding.quantity - req.quantity,
+            "avg_price": holding.avg_price,
+            "current_price": current_price,
+            "total_value": (holding.quantity - req.quantity) * current_price,
+            "pnl": ((holding.quantity - req.quantity) * current_price) - ((holding.quantity - req.quantity) * holding.avg_price),
+            "pnl_percent": (((current_price - holding.avg_price) / holding.avg_price) * 100) if holding.avg_price > 0 else 0
+        }
     }
+    
+    print(f"[SELL] ✅ SUCCESS - Transaction completed\n")
+    return response_data
 
 # ==================== WALLET ENDPOINTS ====================
 

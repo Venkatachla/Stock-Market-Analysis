@@ -2,8 +2,14 @@ export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).format(value);
 }
 
-export function formatPercent(value: number): string {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+export function formatPercent(value: number | undefined | null): string {
+  // Handle undefined, null, and NaN values safely
+  if (value === undefined || value === null || isNaN(value)) {
+    return '0.00%';
+  }
+  
+  const numValue = Number(value);
+  return `${numValue >= 0 ? '+' : ''}${numValue.toFixed(2)}%`;
 }
 
 export function formatLargeNumber(value: number): string {
