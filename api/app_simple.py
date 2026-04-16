@@ -403,14 +403,17 @@ def buy_stock(req: BuyRequest, authorization: Optional[str] = Header(None), db =
     # Deduct from wallet
     deduct_from_wallet(db, user_id, total_cost)
     
+    # Get or create holding
+    holding = get_or_create_holding(db, user_id, req.symbol)
+    
     # Update holdings
-    holding = update_holding_after_buy(db, user_id, req.symbol, req.quantity, current_price)
+    update_holding_after_buy(db, holding, req.quantity, current_price)
     
     # Create transaction
     transaction = create_transaction(
         db=db,
         user_id=user_id,
-        type="BUY",
+        trans_type="BUY",
         symbol=req.symbol,
         quantity=req.quantity,
         price=current_price,
@@ -435,9 +438,8 @@ def sell_stock(req: SellRequest, authorization: Optional[str] = Header(None), db
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    # Check holdings
-    holdings = get_user_holdings(db, user_id)
-    holding = next((h for h in holdings if h.symbol == req.symbol), None)
+    # Get holding
+    holding = get_or_create_holding(db, user_id, req.symbol)
     
     if not holding or holding.quantity < req.quantity:
         raise HTTPException(status_code=400, detail="Insufficient holdings")
@@ -450,7 +452,7 @@ def sell_stock(req: SellRequest, authorization: Optional[str] = Header(None), db
     total_proceeds = req.quantity * current_price
     
     # Update holdings
-    update_holding_after_sell(db, user_id, req.symbol, req.quantity, current_price)
+    update_holding_after_sell(db, holding, req.quantity, current_price)
     
     # Add to wallet
     add_to_wallet(db, user_id, total_proceeds)
@@ -459,7 +461,7 @@ def sell_stock(req: SellRequest, authorization: Optional[str] = Header(None), db
     transaction = create_transaction(
         db=db,
         user_id=user_id,
-        type="SELL",
+        trans_type="SELL",
         symbol=req.symbol,
         quantity=req.quantity,
         price=current_price,
@@ -563,7 +565,7 @@ def verify_payment(req: VerifyPaymentRequest, authorization: Optional[str] = Hea
     create_transaction(
         db=db,
         user_id=user_id,
-        type="WALLET_RECHARGE",
+        trans_type="WALLET_RECHARGE",
         symbol=None,
         quantity=None,
         price=None,

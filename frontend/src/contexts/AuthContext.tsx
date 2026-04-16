@@ -39,10 +39,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:8000/auth/signup', {
+      const response = await fetch('http://localhost:8000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name: email.split('@')[0] }),
+        body: JSON.stringify({ email, password }),
       });
 
       if (!response.ok) {
@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signup = async (email: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:8000/auth/signup', {
+      const response = await fetch('http://localhost:8000/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name: email.split('@')[0] }),
@@ -102,8 +102,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
-    setUser(null);
     setToken(null);
+    setUser(null);
     setAuthToken(null);
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');

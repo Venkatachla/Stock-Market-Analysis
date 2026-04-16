@@ -78,6 +78,8 @@ const Dashboard: React.FC = () => {
         <div className="relative">
           <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
           <input
+            id="dashboard-search"
+            name="search"
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -88,6 +90,7 @@ const Dashboard: React.FC = () => {
             type="submit"
             disabled={promptLoading || !prompt.trim()}
             className="absolute right-2 top-2 p-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            aria-label="Search signals"
           >
             <Sparkles className="h-5 w-5" />
           </button>

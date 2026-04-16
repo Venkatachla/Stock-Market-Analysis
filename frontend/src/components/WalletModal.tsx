@@ -208,11 +208,13 @@ export const WalletModal: React.FC<WalletModalProps> = ({
             <div className="space-y-4">
               {/* Amount Input */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label htmlFor="wallet-amount" className="block text-sm font-medium text-slate-300 mb-2">
                   Amount (₹)
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="wallet-amount"
+                    name="amount"
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}

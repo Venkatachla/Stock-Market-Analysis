@@ -9,8 +9,15 @@ const Signup: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signup } = useAuth();
+  const { signup, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const validateForm = (): boolean => {
     if (!email || !password || !confirmPassword) {
@@ -80,10 +87,12 @@ const Signup: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label htmlFor="signup-email" className="block text-sm font-medium text-slate-300 mb-2">
                 Email Address
               </label>
               <input
+                id="signup-email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -94,10 +103,12 @@ const Signup: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label htmlFor="signup-password" className="block text-sm font-medium text-slate-300 mb-2">
                 Password
               </label>
               <input
+                id="signup-password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -109,10 +120,12 @@ const Signup: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label htmlFor="signup-confirm-password" className="block text-sm font-medium text-slate-300 mb-2">
                 Confirm Password
               </label>
               <input
+                id="signup-confirm-password"
+                name="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

@@ -48,6 +48,8 @@ const Discovery: React.FC = () => {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
+            id="discovery-search"
+            name="search"
             type="text"
             placeholder="Search stocks..."
             value={search}
@@ -56,13 +58,13 @@ const Discovery: React.FC = () => {
             aria-label="Search stocks"
           />
         </div>
-        <select value={sector} onChange={(e) => setSector(e.target.value)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Filter by sector">
+        <select id="discovery-sector" name="sector" value={sector} onChange={(e) => setSector(e.target.value)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Filter by sector">
           {sectors.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={signalFilter} onChange={(e) => setSignalFilter(e.target.value as any)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Filter by signal">
+        <select id="discovery-signal" name="signal" value={signalFilter} onChange={(e) => setSignalFilter(e.target.value as any)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Filter by signal">
           {signalFilters.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Sort by">
+        <select id="discovery-sort" name="sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Sort by">
           <option value="confidence">Confidence</option>
           <option value="change">Change %</option>
           <option value="volume">Volume</option>

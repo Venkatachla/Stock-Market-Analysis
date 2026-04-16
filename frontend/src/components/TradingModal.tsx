@@ -114,10 +114,12 @@ export const TradingModal: React.FC<TradingModalProps> = ({
 
         {/* Quantity Input */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label htmlFor="trading-quantity" className="block text-sm font-medium text-slate-300 mb-2">
             Quantity
           </label>
           <input
+            id="trading-quantity"
+            name="quantity"
             type="number"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}

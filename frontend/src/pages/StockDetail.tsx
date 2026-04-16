@@ -230,7 +230,7 @@ const TradingPanel: React.FC<{ stock: StockSignal }> = ({ stock }) => {
         return;
       }
 
-      const endpoint = action === 'buy' ? '/trading/buy' : '/trading/sell';
+      const endpoint = action === 'buy' ? '/api/trading/buy' : '/api/trading/sell';
       const response = await fetch(`http://localhost:8000${endpoint}`, {
         method: 'POST',
         headers: {
@@ -280,8 +280,10 @@ const TradingPanel: React.FC<{ stock: StockSignal }> = ({ stock }) => {
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm text-muted-foreground block mb-2">Quantity</label>
+            <label htmlFor="stock-detail-quantity" className="text-sm text-muted-foreground block mb-2">Quantity</label>
             <input
+              id="stock-detail-quantity"
+              name="quantity"
               type="number"
               min="1"
               value={quantity}

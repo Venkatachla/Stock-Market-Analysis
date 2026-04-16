@@ -1,9 +1,10 @@
 import React from 'react';
 import { useAppStore } from '@/stores/appStore';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, Search, BarChart3, Shield, PieChart,
-  Sun, Moon, Menu, X, TrendingUp
+  Sun, Moon, Menu, X, TrendingUp, LogOut, User
 } from 'lucide-react';
 
 const navItems = [
@@ -15,7 +16,14 @@ const navItems = [
 
 const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { theme, toggleTheme, sidebarOpen, toggleSidebar } = useAppStore();
+  const { logout, user } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -63,6 +71,15 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
             </span>
           </button>
+          
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-red-400 hover:bg-red-500/10 w-full transition-colors"
+            title="Logout"
+          >
+            <LogOut className="h-5 w-5" />
+            <span className={`${!sidebarOpen ? 'lg:hidden' : ''}`}>Logout</span>
+          </button>
         </div>
       </aside>
 
@@ -86,6 +103,17 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <span className="h-2 w-2 rounded-full bg-signal-buy animate-pulse-gentle" />
               <span>Auto-refresh: 30s</span>
             </div>
+            {user && (
+              <div className="flex items-center gap-3 pl-4 border-l border-border">
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs font-medium text-foreground">{user.email}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{user.tier}</p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-600/30 flex items-center justify-center">
+                  <User className="h-4 w-4 text-blue-400" />
+                </div>
+              </div>
+            )}
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
