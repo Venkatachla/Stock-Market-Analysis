@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePolling } from '@/hooks/usePolling';
 import { fetchMarketOverview, fetchStockSignals } from '@/services/api';
@@ -14,29 +14,33 @@ const Dashboard: React.FC = () => {
   const [promptLoading, setPromptLoading] = useState(false);
   const [pollInfo, setPollInfo] = useState<{lastUpdate: string, pollCount: number}>({lastUpdate: '', pollCount: 0});
 
+  const pollMarketData = useCallback(() => {
+    console.log('📊 Fetching market data...');
+    setPollInfo(prev => ({
+      lastUpdate: new Date().toLocaleTimeString(),
+      pollCount: prev.pollCount + 1
+    }));
+    return fetchMarketOverview();
+  }, []);
+
+  const pollSignalsData = useCallback(() => {
+    console.log('🎯 Fetching stock signals...');
+    setPollInfo(prev => ({
+      lastUpdate: new Date().toLocaleTimeString(),
+      pollCount: prev.pollCount + 1
+    }));
+    return fetchStockSignals();
+  }, []);
+
   // 🔄 REAL-TIME MARKET DATA - Poll every 10 seconds (was 30s)
   const { data: marketData, loading: mLoading, error: mError, retry: mRetry } = usePolling<MarketOverview>(
-    () => {
-      console.log('📊 Fetching market data...');
-      setPollInfo(prev => ({
-        lastUpdate: new Date().toLocaleTimeString(),
-        pollCount: prev.pollCount + 1
-      }));
-      return fetchMarketOverview();
-    },
+    pollMarketData,
     10000  // ✅ Changed from 30000 to 10000 (10 seconds) for real-time updates
   );
   
   // 🔄 REAL-TIME STOCK SIGNALS - Poll every 8 seconds (was 30s)
   const { data: signalsData, loading: sLoading, error: sError, retry: sRetry } = usePolling<StockSignal[]>(
-    () => {
-      console.log('🎯 Fetching stock signals...');
-      setPollInfo(prev => ({
-        lastUpdate: new Date().toLocaleTimeString(),
-        pollCount: prev.pollCount + 1
-      }));
-      return fetchStockSignals();
-    },
+    pollSignalsData,
     8000  // ✅ Changed from 30000 to 8000 (8 seconds) for real-time dynamic predictions
   );
 
