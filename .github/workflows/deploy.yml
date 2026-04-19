@@ -74,13 +74,20 @@ jobs:
       # Integration tests
       - name: Start backend server
         run: |
-          python -m uvicorn api.app_fixed:app --host 127.0.0.1 --port 8000 &
+          nohup python -m uvicorn api.app_fixed:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
       - name: Wait for backend
         run: |
-          for i in {1..10}; do
-            curl -s http://localhost:8000/health && break
+          for i in {1..20}; do
+            if curl -s http://localhost:8000/health; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            echo "Waiting for backend..."
             sleep 2
           done
+          echo "Backend failed to start"
+          cat server.log
+          exit 1
                 
       - name: Run integration tests
         run: |
@@ -217,3 +224,7 @@ jobs:
           echo "1. Pull code to production server"
           echo "2. Run: python -m uvicorn api.app_fixed:app --host 127.0.0.1 --port 8000"
           echo "3. Serve frontend/dist/ static files"
+
+      - name: Print backend logs on failure
+        if: failure()
+        run: cat server.log
