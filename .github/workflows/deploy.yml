@@ -46,7 +46,7 @@ jobs:
       
       - name: Check backend syntax
         run: |
-          python -m py_compile api/app_simple.py
+          python -m py_compile api/app_fixed.py
           python -m py_compile api/auth.py
           python -m py_compile api/models.py
           python -m py_compile api/db_utils.py
@@ -74,9 +74,21 @@ jobs:
       # Integration tests
       - name: Start backend server
         run: |
-          python -m uvicorn api.app_simple:app --host 127.0.0.1 --port 8000 &
-          sleep 5
-      
+          nohup python -m uvicorn api.app_fixed:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
+      - name: Wait for backend
+        run: |
+          for i in {1..20}; do
+            if curl -s http://localhost:8000/health; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            echo "Waiting for backend..."
+            sleep 2
+          done
+          echo "Backend failed to start"
+          cat server.log
+          exit 1
+                
       - name: Run integration tests
         run: |
           python << 'EOF'
@@ -154,14 +166,14 @@ jobs:
           cp requirements.txt build/backend/
       
       - name: Upload backend artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-${{ matrix.python-version }}
           path: build/backend/
           retention-days: 7
       
       - name: Upload frontend artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-build-${{ matrix.node-version }}
           path: frontend/dist/
@@ -204,11 +216,15 @@ jobs:
           echo "====================="
           echo "Branch: ${{ github.ref_name }}"
           echo "Commit: ${{ github.sha }}"
-          echo "Backend: api/app_simple.py"
+          echo "Backend: api/app_fixed.py"
           echo "Frontend: built to frontend/dist/"
           echo "Status: ✅ READY FOR DEPLOYMENT"
           echo ""
           echo "Next steps:"
           echo "1. Pull code to production server"
-          echo "2. Run: python -m uvicorn api.app_simple:app --host 0.0.0.0 --port 8000"
+          echo "2. Run: python -m uvicorn api.app_fixed:app --host 127.0.0.1 --port 8000"
           echo "3. Serve frontend/dist/ static files"
+
+      - name: Print backend logs on failure
+        if: failure()
+        run: cat server.log

@@ -21,6 +21,12 @@ const RiskOS = lazy(() => import("./pages/RiskOS"));
 
 const queryClient = new QueryClient();
 
+// const ProtectedLayout = () => (
+//   <ProtectedRoute>
+//     <AppLayout />
+//   </ProtectedRoute>
+// );
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -36,58 +42,16 @@ const App = () => (
               <Route path="/signup" element={<Signup />} />
 
               {/* Protected Routes */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <Dashboard />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/dashboard" element={<Navigate to="/" replace />} />
-              <Route
-                path="/stock/:symbol"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <StockDetail />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/discovery"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <Discovery />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/portfolio"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <Portfolio />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/risk"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <RiskOS />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-
+              <Route path="/" element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="stock/:symbol" element={<StockDetail />} />
+                  <Route path="discovery" element={<Discovery />} />
+                  <Route path="portfolio" element={<Portfolio />} />
+                  <Route path="risk" element={<RiskOS />} />
+                </Route>
+              </Route>
               {/* Fallback */}
               <Route path="*" element={<NotFound />} />
             </Routes>

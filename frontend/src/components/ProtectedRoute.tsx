@@ -1,14 +1,10 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingState } from '@/components/common/StatusComponents';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+const ProtectedRoute = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation(); // force re-render on route change
 
   if (isLoading) {
     return <LoadingState message="Loading..." />;
@@ -18,7 +14,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

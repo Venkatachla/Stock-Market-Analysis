@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { fetchRiskMetrics } from '@/services/api';
 import { mockRisk } from '@/utils/mockData';
@@ -7,8 +7,13 @@ import { Shield, AlertTriangle, Activity, TrendingDown } from 'lucide-react';
 import type { RiskMetrics } from '@/services/api';
 
 const RiskOS: React.FC = () => {
+  const pollRiskMetrics = useCallback(
+    () => fetchRiskMetrics().catch(() => mockRisk),
+    []
+  );
+
   const { data: risk } = usePolling<RiskMetrics>(
-    () => fetchRiskMetrics().catch(() => mockRisk), 30000
+    pollRiskMetrics, 30000
   );
 
   const metrics = risk ?? mockRisk;

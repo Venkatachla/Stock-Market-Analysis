@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { createChart, ColorType, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
 import { usePolling } from '@/hooks/usePolling';
@@ -14,10 +14,14 @@ const StockDetail: React.FC = () => {
   const chartRef = useRef<HTMLDivElement>(null);
   const volumeChartRef = useRef<HTMLDivElement>(null);
   const rsiChartRef = useRef<HTMLDivElement>(null);
+  const pollStockDetail = useCallback(
+    () => fetchStockDetail(symbol!),
+    [symbol]
+  );
 
   // Fetch real stock data from backend with autoupdate every 30 seconds
   const { data: stock } = usePolling<StockSignal>(
-    () => fetchStockDetail(symbol!),
+    pollStockDetail,
     30000
   );
 

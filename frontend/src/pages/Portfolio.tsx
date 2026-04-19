@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { getPortfolio, getTransactions, Transaction } from '@/services/api';
 import { mockPortfolio } from '@/utils/mockData';
@@ -20,14 +20,22 @@ const Portfolio: React.FC = () => {
   const [selectedStock, setSelectedStock] = useState<{ symbol: string; price: number; quantity?: number } | null>(null);
   const [tradingMode, setTradingMode] = useState<'BUY' | 'SELL'>('BUY');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const pollPortfolio = useCallback(
+    () => (token ? getPortfolio(token) : Promise.reject('No token')),
+    [token]
+  );
+  const pollTransactions = useCallback(
+    () => (token ? getTransactions(token, 10) : Promise.resolve([])),
+    [token]
+  );
 
   const { data: portfolioData, retry: retryPortfolio } = usePolling(
-    () => (token ? getPortfolio(token) : Promise.reject('No token')),
+    pollPortfolio,
     10000  // Updated from 30000ms to 10000ms (10 seconds) for real-time feedback
   );
 
   const { data: transactionsData, retry: retryTransactions } = usePolling(
-    () => (token ? getTransactions(token, 10) : Promise.resolve([])),
+    pollTransactions,
     15000  // Updated from 60000ms to 15000ms (15 seconds) for real-time updates
   );
 

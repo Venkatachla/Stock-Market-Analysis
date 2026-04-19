@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { usePolling } from '@/hooks/usePolling';
 import { fetchDiscovery } from '@/services/api';
@@ -16,9 +16,13 @@ const Discovery: React.FC = () => {
   const [sector, setSector] = useState('All');
   const [signalFilter, setSignalFilter] = useState<typeof signalFilters[number]>('All');
   const [sortBy, setSortBy] = useState<'change' | 'volume' | 'confidence'>('confidence');
+  const pollDiscovery = useCallback(
+    () => fetchDiscovery().catch(() => mockSignals),
+    []
+  );
 
   const { data: stocks } = usePolling<StockSignal[]>(
-    () => fetchDiscovery().catch(() => mockSignals), 30000
+    pollDiscovery, 30000
   );
 
   const items = stocks ?? mockSignals;

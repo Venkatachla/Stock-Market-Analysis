@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '@/stores/appStore';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, Search, BarChart3, Shield, PieChart,
@@ -14,7 +14,7 @@ const navItems = [
   { path: '/risk', label: 'Risk-OS', icon: Shield },
 ];
 
-const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const AppLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { theme, toggleTheme, sidebarOpen, toggleSidebar } = useAppStore();
   const { logout, user } = useAuth();
   const navigate = useNavigate();
@@ -117,11 +117,11 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
+          <Outlet />
         </main>
       </div>
     </div>
   );
 };
 
-export default React.memo(AppLayout);
+export default AppLayout;
