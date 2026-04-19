@@ -274,17 +274,26 @@ def verify_payment(
     if payment_details["status"] != "captured":
         raise HTTPException(status_code=400, detail="Payment not successful")
     
-    # Update transaction status
+    # Get the pending transaction
     transaction = get_transaction_by_order_id(db, request.order_id)
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # IDEMPOTENCY: If already processed, return success without double-crediting
+    if transaction.status == "SUCCESS":
+        print(f"[PAYMENT] Duplicate verify for order {request.order_id} — already processed")
+        return {
+            "status": "success",
+            "message": "Payment already processed",
+            "amount": transaction.total_amount
+        }
     
     # Add money to wallet
     amount = payment_details["amount"]
     if not add_to_wallet(db, current_user.id, amount):
         raise HTTPException(status_code=500, detail="Failed to update wallet")
     
-    # Update transaction
+    # Update transaction to SUCCESS
     update_transaction_status(
         db,
         transaction.id,
@@ -293,9 +302,10 @@ def verify_payment(
         request.signature
     )
     
+    print(f"[PAYMENT] User {current_user.email} deposited ₹{amount} via order {request.order_id}")
     return {
         "status": "success",
-        "message": f"₹{amount} added to wallet",
+        "message": f"\u20b9{amount} added to wallet",
         "amount": amount
     }
 
@@ -325,13 +335,18 @@ def buy_stock(
     if not wallet or wallet.available_balance < total_cost:
         raise HTTPException(status_code=400, detail="Insufficient balance")
     
-    # Deduct from wallet
+    # Deduct from wallet (atomic)
     if not deduct_from_wallet(db, current_user.id, total_cost):
         raise HTTPException(status_code=500, detail="Failed to process payment")
     
-    # Update or create holding
-    holding = get_or_create_holding(db, current_user.id, request.symbol)
-    update_holding_after_buy(db, holding, request.quantity, price)
+    # Update holding — rollback wallet if this fails
+    try:
+        holding = get_or_create_holding(db, current_user.id, request.symbol)
+        update_holding_after_buy(db, holding, request.quantity, price)
+    except Exception as e:
+        print(f"[BUY] Holding update failed for {request.symbol}, refunding ₹{total_cost}: {e}")
+        refund_to_wallet(db, current_user.id, total_cost)
+        raise HTTPException(status_code=500, detail="Trade failed, funds refunded")
     
     # Create transaction record
     transaction = create_transaction(
@@ -347,6 +362,7 @@ def buy_stock(
         reason="Manual buy order"
     )
     
+    print(f"[BUY] User {current_user.email} bought {request.quantity}x{request.symbol} @ ₹{price} | txn#{transaction.id}")
     return {
         "status": "success",
         "message": f"Bought {request.quantity} shares of {request.symbol}",
@@ -385,12 +401,18 @@ def sell_stock(
     # Calculate total proceeds
     total_proceeds = price * request.quantity
     
-    # Update holding
-    update_holding_after_sell(db, holding, request.quantity, price)
-    
-    # Add back to wallet
+    # CRITICAL: Credit wallet FIRST, then deduct holding
+    # If wallet credit fails, holding is untouched — no partial state
     if not add_to_wallet(db, current_user.id, total_proceeds):
-        raise HTTPException(status_code=500, detail="Failed to process refund")
+        raise HTTPException(status_code=500, detail="Failed to process payment")
+    
+    # Update holding (deduct or delete)
+    try:
+        update_holding_after_sell(db, holding, request.quantity, price)
+    except Exception as e:
+        print(f"[SELL] Holding update failed for {request.symbol}, reversing wallet: {e}")
+        deduct_from_wallet(db, current_user.id, total_proceeds)  # reverse the credit
+        raise HTTPException(status_code=500, detail="Trade failed, wallet reversed")
     
     # Create transaction record
     transaction = create_transaction(
@@ -405,6 +427,7 @@ def sell_stock(
         reason="Manual sell order"
     )
     
+    print(f"[SELL] User {current_user.email} sold {request.quantity}x{request.symbol} @ ₹{price} | txn#{transaction.id}")
     return {
         "status": "success",
         "message": f"Sold {request.quantity} shares of {request.symbol}",

@@ -656,7 +656,7 @@ jobs:
       
       # Artifact upload
       - name: Upload frontend build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-build-${{ matrix.node-version }}
           path: frontend/dist/
@@ -664,7 +664,7 @@ jobs:
       
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: test-results/

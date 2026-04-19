@@ -26,7 +26,7 @@ def create_user(db: Session, email: str, password: str, tier: str = "free", is_a
         updated_at=datetime.utcnow().isoformat()
     )
     db.add(user)
-    db.commit()
+    db.flush()
     db.refresh(user)
     
     # Create wallet for new user
@@ -62,7 +62,7 @@ def update_user_token(db: Session, user_id: int, token: str) -> bool:
         return False
     user.token = token
     user.updated_at = datetime.utcnow().isoformat()
-    db.commit()
+    # db.commit() - Controlled at route level
     return True
 
 
@@ -79,14 +79,17 @@ def create_wallet(db: Session, user_id: int, initial_balance: float = 0.0) -> Wa
         updated_at=datetime.utcnow().isoformat()
     )
     db.add(wallet)
-    db.commit()
+    db.flush()
     db.refresh(wallet)
     return wallet
 
 
-def get_wallet(db: Session, user_id: int) -> Optional[Wallet]:
-    """Get user wallet"""
-    return db.query(Wallet).filter(Wallet.user_id == user_id).first()
+def get_wallet(db: Session, user_id: int, lock: bool = False) -> Optional[Wallet]:
+    """Get user wallet (with optional row-level locking)"""
+    query = db.query(Wallet).filter(Wallet.user_id == user_id)
+    if lock:
+        query = query.with_for_update()
+    return query.first()
 
 
 def add_to_wallet(db: Session, user_id: int, amount: float) -> bool:
@@ -98,7 +101,7 @@ def add_to_wallet(db: Session, user_id: int, amount: float) -> bool:
     wallet.balance += amount
     wallet.available_balance += amount
     wallet.updated_at = datetime.utcnow().isoformat()
-    db.commit()
+    # db.commit() - Controlled at route level
     return True
 
 
@@ -111,7 +114,7 @@ def deduct_from_wallet(db: Session, user_id: int, amount: float) -> bool:
     wallet.available_balance -= amount
     wallet.used_balance += amount
     wallet.updated_at = datetime.utcnow().isoformat()
-    db.commit()
+    # db.commit() - Controlled at route level
     return True
 
 
@@ -124,7 +127,7 @@ def refund_to_wallet(db: Session, user_id: int, amount: float) -> bool:
     wallet.available_balance += amount
     wallet.used_balance = max(0, wallet.used_balance - amount)
     wallet.updated_at = datetime.utcnow().isoformat()
-    db.commit()
+    # db.commit() - Controlled at route level
     return True
 
 
@@ -163,7 +166,7 @@ def get_or_create_holding(db: Session, user_id: int, symbol: str) -> Holding:
         updated_at=datetime.utcnow().isoformat()
     )
     db.add(holding)
-    db.commit()
+    db.flush()
     db.refresh(holding)
     return holding
 
@@ -175,21 +178,24 @@ def get_user_holdings(db: Session, user_id: int) -> List[Holding]:
 
 def update_holding_after_buy(db: Session, holding: Holding, quantity: int, price: float) -> None:
     """Update holding after buy transaction"""
-    if holding.quantity == 0:
+    old_qty = holding.quantity
+    new_qty = old_qty + quantity
+    if old_qty == 0:
         holding.avg_price = price
     else:
-        # Calculate new average price
-        total_cost = (holding.quantity * holding.avg_price) + (quantity * price)
-        holding.quantity += quantity
-        holding.avg_price = total_cost / holding.quantity
-    
+        # Calculate new average price using old quantity
+        total_cost = (old_qty * holding.avg_price) + (quantity * price)
+        holding.avg_price = total_cost / new_qty
+    # Always update quantity regardless of branch
+    holding.quantity = new_qty
     holding.current_price = price
     holding.total_investment = holding.quantity * holding.avg_price
     holding.current_value = holding.quantity * holding.current_price
     holding.pnl = holding.current_value - holding.total_investment
     holding.pnl_percent = (holding.pnl / holding.total_investment * 100) if holding.total_investment > 0 else 0
     holding.updated_at = datetime.utcnow().isoformat()
-    db.commit()
+    # db.commit() - Controlled at route level
+
 
 
 def update_holding_after_sell(db: Session, holding: Holding, quantity: int, price: float) -> None:
@@ -206,7 +212,7 @@ def update_holding_after_sell(db: Session, holding: Holding, quantity: int, pric
         holding.pnl_percent = (holding.pnl / holding.total_investment * 100) if holding.total_investment > 0 else 0
         holding.updated_at = datetime.utcnow().isoformat()
     
-    db.commit()
+    # db.commit() - Controlled at route level
 
 
 # ====================== TRANSACTION FUNCTIONS ======================
@@ -242,7 +248,7 @@ def create_transaction(
         updated_at=datetime.utcnow().isoformat()
     )
     db.add(transaction)
-    db.commit()
+    db.flush()
     db.refresh(transaction)
     return transaction
 
@@ -271,5 +277,5 @@ def update_transaction_status(db: Session, transaction_id: int, status: str, pay
     if signature:
         transaction.signature = signature
     transaction.updated_at = datetime.utcnow().isoformat()
-    db.commit()
+    # db.commit() - Controlled at route level
     return True
