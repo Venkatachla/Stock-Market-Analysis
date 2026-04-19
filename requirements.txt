@@ -59,3 +59,5 @@ vaderSentiment==3.3.2
 # NOTE:
 # DO NOT ADD pydantic-settings (breaks this setup)
 # =========================
+
+yfinance==0.2.40
