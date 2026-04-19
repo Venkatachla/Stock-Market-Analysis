@@ -167,7 +167,7 @@ app.add_middleware(
 )
 
 # Include trading system routes
-app.include_router(trading_router)
+app.include_router(trading_router, prefix="/api")
 
 
 UNIVERSE_DF = None

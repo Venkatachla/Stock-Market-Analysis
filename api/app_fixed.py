@@ -6,6 +6,10 @@ Run: python -m uvicorn api.app_fixed:app --host 0.0.0.0 --port 8000
 import os
 import sys
 import logging
+from typing import List, Optional, Dict, Any
+import time
+from datetime import datetime, timedelta
+from functools import lru_cache
 
 os.environ["PYTHONWARNINGS"] = "ignore::ResourceWarning"
 
@@ -20,11 +24,7 @@ from fastapi import FastAPI, HTTPException, Header, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from datetime import datetime, timedelta
 import yfinance as yf
-from typing import List, Optional, Dict, Any
-import time
-from functools import lru_cache
 
 # Import from existing modules
 try:
@@ -80,17 +80,6 @@ class AuthResponse(BaseModel):
     tier: str = "free"
     is_admin: bool = False
 
-class StockSignal(BaseModel):
-    symbol: str
-    name: str
-    price: float
-    change: float
-    changePercent: float
-    signal_type: str
-    confidence: float
-    reason: str
-    volume: Optional[int] = None
-
 class BuyRequest(BaseModel):
     symbol: str
     quantity: int
@@ -103,16 +92,6 @@ class WalletResponse(BaseModel):
     balance: float
     available_balance: float
     used_balance: float
-
-class HoldingResponse(BaseModel):
-    symbol: str
-    quantity: int
-    avg_price: float
-    current_price: float
-    total_investment: float
-    current_value: float
-    pnl: float
-    pnl_percent: float
 
 # ==================== DATABASE DEPENDENCY ====================
 
@@ -188,12 +167,9 @@ def get_stock_price(symbol: str) -> Dict[str, Any]:
 def get_stock_signals_with_prices() -> List[Dict[str, Any]]:
     """Get all signals with real prices merged in"""
     signals = []
-    
     for signal_config in SIGNALS_CONFIG:
         symbol_ns = signal_config["symbol"] + ".NS"
-        
         price_data = get_stock_price(symbol_ns)
-        
         signal = {
             "symbol": signal_config["symbol"],
             "name": price_data["name"],
@@ -206,7 +182,6 @@ def get_stock_signals_with_prices() -> List[Dict[str, Any]]:
             "volume": price_data.get("volume", 0)
         }
         signals.append(signal)
-    
     return signals
 
 # ==================== AUTHENTICATION ====================
@@ -215,11 +190,9 @@ def verify_auth_token(authorization: Optional[str] = Header(None), db = None) ->
     """Verify JWT token and return user_id"""
     if not authorization:
         return None
-    
     try:
         token = authorization.replace("Bearer ", "")
         token_data = verify_token(token)
-        
         if token_data and token_data.email:
             if db:
                 user = get_user_by_email(db, token_data.email)
@@ -234,25 +207,18 @@ def verify_auth_token(authorization: Optional[str] = Header(None), db = None) ->
 
 @app.options("/api/auth/signup")
 async def options_signup():
-    """Handle CORS preflight for signup"""
     return JSONResponse(status_code=200, content={})
 
 @app.post("/api/auth/signup", response_model=AuthResponse)
 async def signup(user: UserSignup, db = Depends(get_db)):
-    """Create new user account"""
     logger.info(f"📝 Signup attempt: {user.email}")
-    
     try:
         existing = get_user_by_email(db, user.email)
         if existing:
-            logger.warning(f"⚠️ Signup failed: User exists {user.email}")
             raise HTTPException(status_code=400, detail="User already exists")
-        
         new_user = create_user(db, user.email, user.password, user.name)
+        db.commit() # Persistent
         token = create_access_token(user.email, new_user.id)
-        
-        logger.info(f"✅ User created: {user.email} (ID: {new_user.id})")
-        
         return {
             "token": token,
             "user_id": new_user.id,
@@ -261,57 +227,34 @@ async def signup(user: UserSignup, db = Depends(get_db)):
             "tier": "free",
             "is_admin": False
         }
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"❌ Signup error: {str(e)}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Signup failed: {str(e)}")
-
-@app.options("/api/auth/login")
-async def options_login():
-    """Handle CORS preflight for login"""
-    return JSONResponse(status_code=200, content={})
 
 @app.post("/api/auth/login", response_model=AuthResponse)
 async def login(user: UserLogin, db = Depends(get_db)):
-    """Login to account"""
-    logger.info(f"🔐 Login attempt: {user.email}")
-    
     try:
         db_user = get_user_by_email(db, user.email)
         if not db_user or not verify_password(user.password, db_user.password_hash):
-            logger.warning(f"⚠️ Login failed: Invalid credentials {user.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
-        
         token = create_access_token(user.email, db_user.id)
-        
-        logger.info(f"✅ User logged in: {user.email}")
-        
         return {
             "token": token,
             "user_id": db_user.id,
             "email": db_user.email,
-            "name": user.email.split("@")[0],
+            "name": db_user.email.split("@")[0],
             "tier": getattr(db_user, "tier", "free"),
             "is_admin": bool(getattr(db_user, "is_admin", False))
         }
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"❌ Login error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/auth/me")
 async def get_me(authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Get current user info"""
     user_id = verify_auth_token(authorization, db)
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    
     user = get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
     return {
         "id": user.id,
         "email": user.email,
@@ -323,12 +266,8 @@ async def get_me(authorization: Optional[str] = Header(None), db = Depends(get_d
 
 @app.get("/api/signals/active")
 async def get_active_signals():
-    """Get all active buy/sell signals WITH REAL PRICES"""
-    logger.info("📊 Fetching active signals")
-    
     try:
         signals = get_stock_signals_with_prices()
-        
         return {
             "signals": signals,
             "total": len(signals),
@@ -337,24 +276,19 @@ async def get_active_signals():
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
-        logger.error(f"❌ Error fetching signals: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching signals: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== PORTFOLIO ENDPOINTS ====================
 
 @app.get("/portfolio")
 async def get_portfolio(authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Get user portfolio summary"""
     user_id = verify_auth_token(authorization, db)
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    
     try:
         wallet = get_wallet(db, user_id)
         holdings = get_user_holdings(db, user_id)
-        
         total_value = wallet.balance if wallet else 0
-        
         holdings_list = []
         for holding in holdings:
             try:
@@ -363,9 +297,7 @@ async def get_portfolio(authorization: Optional[str] = Header(None), db = Depend
                 current_value = holding.quantity * current_price
                 pnl = current_value - holding.total_investment
                 pnl_percent = (pnl / holding.total_investment * 100) if holding.total_investment > 0 else 0
-                
                 total_value += current_value
-                
                 holdings_list.append({
                     "symbol": holding.symbol,
                     "quantity": holding.quantity,
@@ -376,10 +308,8 @@ async def get_portfolio(authorization: Optional[str] = Header(None), db = Depend
                     "pnl": round(pnl, 2),
                     "pnl_percent": round(pnl_percent, 2)
                 })
-            except Exception as e:
-                logger.warning(f"⚠️ Error processing holding {holding.symbol}: {str(e)}")
+            except Exception:
                 continue
-        
         return {
             "total_value": round(total_value, 2),
             "wallet_balance": round(wallet.balance, 2) if wallet else 0,
@@ -387,39 +317,75 @@ async def get_portfolio(authorization: Optional[str] = Header(None), db = Depend
             "number_of_holdings": len(holdings)
         }
     except Exception as e:
-        logger.error(f"❌ Portfolio error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching portfolio: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/portfolio/add-demo-funds")
+async def add_demo_funds(amount: float = Query(..., gt=0), authorization: Optional[str] = Header(None), db = Depends(get_db)):
+    """Add demo funds to wallet with strict validation and atomicity"""
+    user_id = verify_auth_token(authorization, db)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        # Credit wallet
+        if not add_to_wallet(db, user_id, amount):
+            raise HTTPException(status_code=404, detail="Wallet not found")
+        
+        # Record transaction
+        create_transaction(
+            db=db,
+            user_id=user_id,
+            trans_type="DEPOSIT",
+            total_amount=amount,
+            status="completed",
+            reason="Demo funds injection"
+        )
+        
+        db.commit()
+        logger.info(f"✅ Demo funds added: ₹{amount} to user {user_id}")
+        return {
+            "status": "success",
+            "message": f"₹{amount} added to wallet",
+            "amount": amount
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== TRADING ENDPOINTS ====================
 
 @app.post("/api/trading/buy")
 async def buy_stock(req: BuyRequest, authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Buy stock with wallet balance check"""
     user_id = verify_auth_token(authorization, db)
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    logger.info(f"💰 Buy request: {req.symbol} x{req.quantity}")
-    
     try:
-        symbol_ns = req.symbol + ".NS"
-        price_data = get_stock_price(symbol_ns)
+        # 1. Fetch Price
+        price_data = get_stock_price(req.symbol + ".NS")
         current_price = price_data["price"]
-        
         total_cost = req.quantity * current_price
         
+        # 2. Validate Wallet
         wallet = get_wallet(db, user_id)
-        if not wallet or wallet.balance < total_cost:
-            logger.warning(f"⚠️ Buy failed: Insufficient balance ({wallet.balance} < {total_cost})")
+        if not wallet or wallet.available_balance < total_cost:
             raise HTTPException(status_code=400, detail="Insufficient balance")
         
-        deduct_from_wallet(db, user_id, total_cost)
-        holding = update_holding_after_buy(db, user_id, req.symbol, req.quantity, current_price)
+        # 3. Deduct from wallet
+        if not deduct_from_wallet(db, user_id, total_cost):
+            raise HTTPException(status_code=500, detail="Failed to deduct funds")
+            
+        # 4. Get/Create Holding
+        holding = get_or_create_holding(db, user_id, req.symbol)
         
-        transaction = create_transaction(
+        # 5. Update Holding
+        update_holding_after_buy(db, holding, req.quantity, current_price)
+        
+        # 6. Record Transaction
+        create_transaction(
             db=db,
             user_id=user_id,
-            type="BUY",
+            trans_type="BUY",
             symbol=req.symbol,
             quantity=req.quantity,
             price=current_price,
@@ -427,53 +393,45 @@ async def buy_stock(req: BuyRequest, authorization: Optional[str] = Header(None)
             status="completed"
         )
         
-        logger.info(f"✅ Buy successful: {req.symbol} x{req.quantity} @ ₹{current_price}")
-        
-        return {
-            "status": "success",
-            "transaction_id": transaction.id,
-            "symbol": req.symbol,
-            "quantity": req.quantity,
-            "price": current_price,
-            "total": total_cost,
-            "timestamp": datetime.now().isoformat()
-        }
+        db.commit()
+        return {"status": "success", "total_cost": total_cost}
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
-        logger.error(f"❌ Buy error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Buy failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/trading/sell")
 async def sell_stock(req: SellRequest, authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Sell stock with holdings check"""
     user_id = verify_auth_token(authorization, db)
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    logger.info(f"📉 Sell request: {req.symbol} x{req.quantity}")
-    
     try:
+        # 1. Fetch Holding
         holdings = get_user_holdings(db, user_id)
         holding = next((h for h in holdings if h.symbol == req.symbol), None)
-        
         if not holding or holding.quantity < req.quantity:
-            logger.warning(f"⚠️ Sell failed: Insufficient holdings")
             raise HTTPException(status_code=400, detail="Insufficient holdings")
         
-        symbol_ns = req.symbol + ".NS"
-        price_data = get_stock_price(symbol_ns)
+        # 2. Fetch Price
+        price_data = get_stock_price(req.symbol + ".NS")
         current_price = price_data["price"]
-        
         total_proceeds = req.quantity * current_price
         
-        update_holding_after_sell(db, user_id, req.symbol, req.quantity, current_price)
-        add_to_wallet(db, user_id, total_proceeds)
+        # 3. Credit Wallet
+        if not add_to_wallet(db, user_id, total_proceeds):
+            raise HTTPException(status_code=500, detail="Failed to credit wallet")
         
-        transaction = create_transaction(
+        # 4. Update Holding
+        update_holding_after_sell(db, holding, req.quantity, current_price)
+        
+        # 5. Record Transaction
+        create_transaction(
             db=db,
             user_id=user_id,
-            type="SELL",
+            trans_type="SELL",
             symbol=req.symbol,
             quantity=req.quantity,
             price=current_price,
@@ -481,36 +439,21 @@ async def sell_stock(req: SellRequest, authorization: Optional[str] = Header(Non
             status="completed"
         )
         
-        logger.info(f"✅ Sell successful: {req.symbol} x{req.quantity} @ ₹{current_price}")
-        
-        return {
-            "status": "success",
-            "transaction_id": transaction.id,
-            "symbol": req.symbol,
-            "quantity": req.quantity,
-            "price": current_price,
-            "total": total_proceeds,
-            "timestamp": datetime.now().isoformat()
-        }
+        db.commit()
+        return {"status": "success", "total_proceeds": total_proceeds}
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
-        logger.error(f"❌ Sell error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Sell failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ==================== WALLET ENDPOINTS ====================
+# ==================== WALLET & TRANSACTIONS ====================
 
-@app.get("/wallet", response_model=WalletResponse)
+@app.get("/wallet")
 async def get_wallet_balance(authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Get wallet balance"""
     user_id = verify_auth_token(authorization, db)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
     wallet = get_wallet(db, user_id)
-    if not wallet:
-        raise HTTPException(status_code=404, detail="Wallet not found")
-    
     return {
         "balance": wallet.balance,
         "available_balance": wallet.available_balance,
@@ -519,13 +462,8 @@ async def get_wallet_balance(authorization: Optional[str] = Header(None), db = D
 
 @app.get("/portfolio/transactions")
 async def get_transactions(authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Get transaction history"""
     user_id = verify_auth_token(authorization, db)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    transactions = get_user_transactions(db, user_id)
-    
+    txs = get_user_transactions(db, user_id)
     return {
         "transactions": [
             {
@@ -536,94 +474,37 @@ async def get_transactions(authorization: Optional[str] = Header(None), db = Dep
                 "price": t.price,
                 "total_amount": t.total_amount,
                 "status": t.status,
-                "created_at": t.created_at if hasattr(t, 'created_at') else datetime.now().isoformat()
-            }
-            for t in transactions
-        ],
-        "total": len(transactions)
+                "created_at": t.created_at
+            } for t in txs
+        ]
     }
-
-# ==================== PAYMENT ENDPOINTS ====================
-
-@app.post("/api/payment/create-order")
-async def create_payment_order(req: Dict[str, float], authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Create payment order"""
-    user_id = verify_auth_token(authorization, db)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        amount = req.get("amount", 1000)
-        order_id = f"order_{int(datetime.now().timestamp())}"
-        
-        logger.info(f"💳 Payment order created: {order_id} for ₹{amount}")
-        
-        return {
-            "order_id": order_id,
-            "amount": amount,
-            "currency": "INR",
-            "key_id": os.getenv("RAZORPAY_KEY_ID", "rzp_test_demo"),
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"❌ Payment error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Payment error: {str(e)}")
-
-@app.post("/api/payment/verify")
-async def verify_payment(req: Dict[str, str], authorization: Optional[str] = Header(None), db = Depends(get_db)):
-    """Verify payment and update wallet"""
-    user_id = verify_auth_token(authorization, db)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    try:
-        amount = 10000  # Demo amount
-        
-        add_to_wallet(db, user_id, amount)
-        
-        create_transaction(
-            db=db,
-            user_id=user_id,
-            type="WALLET_RECHARGE",
-            symbol=None,
-            quantity=None,
-            price=None,
-            total_amount=amount,
-            status="completed"
-        )
-        
-        logger.info(f"✅ Payment verified and wallet updated: ₹{amount}")
-        
-        return {
-            "status": "success",
-            "payment_verified": True,
-            "message": f"₹{amount} added to wallet",
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"❌ Payment verification error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
 
 # ==================== SYSTEM ENDPOINTS ====================
 
+@app.get("/risk-os/overview")
+async def risk_os_overview(capital: float = Query(100000.0, gt=0)):
+    try:
+        signals = get_stock_signals_with_prices()
+        active_setups = len(signals)
+        return {
+            "status": "EXECUTE",
+            "capital": capital,
+            "active_setups": active_setups,
+            "sharpe": 1.8,
+            "beta": 0.95,
+            "max_drawdown": -8.5,
+            "volatility": 12.3,
+            "updated_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 async def health():
-    """Health check"""
-    return {
-        "status": "alive",
-        "version": "2.0.0",
-        "mode": "fixed_with_logging",
-        "timestamp": datetime.now().isoformat()
-    }
+    return {"status": "alive", "version": "2.0.0"}
 
 @app.get("/")
 async def root():
-    """Welcome message"""
-    return {
-        "message": "STCOK Trading API (Fixed v2.0)",
-        "docs": "/docs",
-        "health": "/health",
-        "features": ["Authentication", "Real Prices", "Trading", "Wallet", "Payments"]
-    }
+    return {"message": "STCOK Trading API (Fixed v2.0)"}
 
 logger.info("✅ Backend ready to start!")

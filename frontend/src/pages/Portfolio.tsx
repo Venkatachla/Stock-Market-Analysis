@@ -31,20 +31,22 @@ const Portfolio: React.FC = () => {
 
   const { data: portfolioData, retry: retryPortfolio } = usePolling(
     pollPortfolio,
-    10000  // Updated from 30000ms to 10000ms (10 seconds) for real-time feedback
+    10000
   );
 
   const { data: transactionsData, retry: retryTransactions } = usePolling(
     pollTransactions,
-    15000  // Updated from 60000ms to 15000ms (15 seconds) for real-time updates
+    15000
   );
 
   // Use real portfolio data from backend
   const portfolio = portfolioData?.holdings ?? [];
+  // FIX: backend returns nested wallet object { balance, available_balance, used_balance }
+  // not a flat portfolioData.wallet_balance field
   const wallet = portfolioData ? {
-    balance: portfolioData.wallet_balance,
-    available_balance: portfolioData.wallet_balance,
-    used_balance: 0
+    balance: (portfolioData as any).wallet?.balance ?? 0,
+    available_balance: (portfolioData as any).wallet?.available_balance ?? 0,
+    used_balance: (portfolioData as any).wallet?.used_balance ?? 0,
   } : { balance: 0, available_balance: 0, used_balance: 0 };
   const transactions = transactionsData ?? [];
 
@@ -302,7 +304,7 @@ const Portfolio: React.FC = () => {
         onSuccess={(msg) => showNotification('success', msg)}
         onError={(msg) => showNotification('error', msg)}
         onWalletUpdate={() => {
-          // Refresh portfolio
+          retryPortfolio();
         }}
       />
 

@@ -85,6 +85,7 @@ export interface PortfolioHolding {
   pnlPercent: number;
   allocation: number;
   signal: 'BUY' | 'SELL' | 'NEUTRAL';
+  total_investment?: number;
 }
 
 export interface RiskMetrics {
@@ -197,7 +198,7 @@ function transformBackendChart(data: BackendChartData): OHLC {
   };
 }
 
-// ============ API FUNCTIONS - MAPPED TO STCOK BACKEND ============
+// ============ API FUNCTIONS - MAPPED TO STOCK BACKEND ============
 
 /**
  * Fetch market overview (bulls, bears, active stocks) - WITH REAL PRICES ✅
@@ -508,23 +509,18 @@ export const getWallet = async (token: string): Promise<Wallet> => {
 };
 
 export const addDemoFunds = async (token: string, amount: number): Promise<unknown> => {
-  // Create payment order
-  const orderResp = await api.post('/api/payment/create-order', 
-    { amount }, 
-    { headers: { Authorization: `Bearer ${token}` } }
+  // FIX: Use dedicated demo endpoint — skips Razorpay entirely.
+  // The previous approach sent a fake 'demo_signature' to /payment/verify which
+  // always failed HMAC-SHA256 verification on the backend.
+  const response = await api.post(
+    '/api/portfolio/add-demo-funds',
+    null,
+    {
+      params: { amount },
+      headers: { Authorization: `Bearer ${token}` }
+    }
   );
-  
-  // Auto-verify in demo mode
-  const verifyResp = await api.post('/api/payment/verify',
-    { 
-      order_id: orderResp.data.order_id, 
-      payment_id: 'demo_payment_' + Date.now(),
-      signature: 'demo_signature'
-    },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  
-  return verifyResp.data;
+  return response.data;
 };
 
 // ============ TRADING FUNCTIONS ============
@@ -570,7 +566,7 @@ export interface Transaction {
 
 export interface Portfolio {
   total_value: number;
-  wallet_balance: number;
+  wallet: Wallet;  // FIX: backend returns nested wallet object, not flat wallet_balance
   holdings: PortfolioHolding[];
   number_of_holdings: number;
 }
@@ -586,7 +582,7 @@ export const getTransactions = async (token: string, limit: number = 50): Promis
   const response = await api.get(`/portfolio/transactions`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return response.data?.transactions ?? [];
+  return response.data?.transactions ?? response.data ?? [];
 };
 
 // ============ RAZORPAY FUNCTIONS ============
@@ -630,4 +626,3 @@ export const setAuthToken = (token: string | null | undefined) => {
 };
 
 export default api;
-

@@ -87,7 +87,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({
         handler: async (response: any) => {
           try {
             // Verify payment
-            const result = await verifyPayment(token, {
+            await verifyPayment(token, {
               order_id: orderData.order_id,
               payment_id: response.razorpay_payment_id,
               signature: response.razorpay_signature,
@@ -101,6 +101,8 @@ export const WalletModal: React.FC<WalletModalProps> = ({
             setAmount('1000');
           } catch (error: any) {
             onError(error.response?.data?.detail || 'Payment verification failed');
+          } finally {
+            setLoading(false);  // Always reset loading after payment handler completes
           }
         },
         prefill: {

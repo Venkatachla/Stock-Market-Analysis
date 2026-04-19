@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { createChart, ColorType, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
 import { usePolling } from '@/hooks/usePolling';
-import { fetchStockDetail, fetchOHLC, fetchIndicators } from '@/services/api';
+import { fetchStockDetail, fetchOHLC, fetchIndicators, buyStock, sellStock } from '@/services/api';
 import { mockSignals, generateMockOHLC, generateMockIndicators } from '@/utils/mockData';
 import { formatCurrency, formatPercent, formatLargeNumber } from '@/utils/format';
 import { LoadingState, SignalBadge, MetricCard } from '@/components/common/StatusComponents';
@@ -36,7 +36,7 @@ const StockDetail: React.FC = () => {
     price: 0,
     change: 0,
     changePercent: 0,
-    signal: 'NEUTRAL',
+    signal: 'NEUTRAL' as const,
     confidence: 0,
     volume: 0
   };
@@ -213,7 +213,7 @@ const StockDetail: React.FC = () => {
   );
 };
 
-// Trading Panel Component
+// Trading Panel Component — uses shared axios service (not raw fetch)
 const TradingPanel: React.FC<{ stock: StockSignal }> = ({ stock }) => {
   const [quantity, setQuantity] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
@@ -230,38 +230,25 @@ const TradingPanel: React.FC<{ stock: StockSignal }> = ({ stock }) => {
       const token = localStorage.getItem('auth_token');
       if (!token) {
         setMessage({ type: 'error', text: 'Please login to trade' });
-        setLoading(false);
         return;
       }
 
-      const endpoint = action === 'buy' ? '/api/trading/buy' : '/api/trading/sell';
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          symbol: stock.symbol,
-          quantity: quantity,
-          price: stock.price
-        })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage({
-          type: 'success',
-          text: `${action.toUpperCase()} successful! ${quantity} shares of ${stock.symbol} @ ₹${stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-        });
-        setQuantity(1);
-        setTimeout(() => setMessage(null), 5000);
+      // Use shared axios service — consistent auth headers, interceptors, error handling
+      if (action === 'buy') {
+        await buyStock(token, stock.symbol, quantity);
       } else {
-        setMessage({ type: 'error', text: data.detail || `${action} failed` });
+        await sellStock(token, stock.symbol, quantity);
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` });
+
+      setMessage({
+        type: 'success',
+        text: `${action.toUpperCase()} successful! ${quantity} shares of ${stock.symbol} @ ₹${stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+      });
+      setQuantity(1);
+      setTimeout(() => setMessage(null), 5000);
+    } catch (error: any) {
+      const errMsg = error.response?.data?.detail || `${action} failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      setMessage({ type: 'error', text: errMsg });
     } finally {
       setLoading(false);
     }
