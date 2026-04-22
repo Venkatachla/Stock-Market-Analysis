@@ -25,7 +25,7 @@ export const TradingModal: React.FC<TradingModalProps> = ({
   onSuccess,
   onError,
 }) => {
-  const [quantity, setQuantity] = useState('1');
+  const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [wallet, setWallet] = useState<WalletType | null>(null);
 
@@ -40,10 +40,10 @@ export const TradingModal: React.FC<TradingModalProps> = ({
     }
   }, [isOpen, token, onError]);
 
-  const quantityNum = parseInt(quantity) || 0;
-  const totalCost = quantityNum * currentPrice;
+  const quantityNum = Number(quantity) || 0;
 
   const stats = useMemo(() => {
+    const totalCost = quantityNum * currentPrice;
     const canAfford = wallet ? totalCost <= wallet.available_balance : false;
     const canSell = quantityNum <= maxQuantity;
 
@@ -54,7 +54,7 @@ export const TradingModal: React.FC<TradingModalProps> = ({
       hasError: mode === 'BUY' && !canAfford ? 'Insufficient balance' : 
                 mode === 'SELL' && !canSell ? 'Insufficient quantity' : null,
     };
-  }, [quantityNum, totalCost, wallet, maxQuantity, mode]);
+  }, [quantityNum, currentPrice, wallet, maxQuantity, mode]);
 
   const handleSubmit = async () => {
     if (quantityNum <= 0) {
@@ -77,7 +77,7 @@ export const TradingModal: React.FC<TradingModalProps> = ({
         await sellStock(token, symbol, quantityNum);
         onSuccess(`Successfully sold ${quantityNum} shares of ${symbol} at ₹${currentPrice}`);
       }
-      setQuantity('1');
+      setQuantity(1);
       onClose();
     } catch (error: any) {
       onError(error.response?.data?.detail || `Failed to ${mode === 'BUY' ? 'buy' : 'sell'}`);
@@ -92,6 +92,7 @@ export const TradingModal: React.FC<TradingModalProps> = ({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6 shadow-xl">
         {/* Header */}
+        <h1 style={{color: 'red', fontSize: '24px', fontWeight: 'bold'}}>DEBUG MODAL</h1>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             {mode === 'BUY' ? <TrendingUp className="h-6 w-6 text-green-500" /> : <TrendingUp className="h-6 w-6 text-red-500" />}
@@ -109,7 +110,7 @@ export const TradingModal: React.FC<TradingModalProps> = ({
         {/* Current Price */}
         <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
           <p className="text-slate-400 text-sm">Current Price</p>
-          <p className="text-2xl font-bold text-white">₹{currentPrice.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-white">₹{typeof currentPrice === "number" ? currentPrice.toFixed(2) : "0.00"}</p>
         </div>
 
         {/* Quantity Input */}
@@ -122,7 +123,7 @@ export const TradingModal: React.FC<TradingModalProps> = ({
             name="quantity"
             type="number"
             value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
+            onChange={(e) => setQuantity(Number(e.target.value))}
             min="1"
             max={mode === 'SELL' ? maxQuantity : undefined}
             className="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -141,12 +142,12 @@ export const TradingModal: React.FC<TradingModalProps> = ({
           </div>
           <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-600">
             <p className="text-slate-400">Price per share</p>
-            <p className="text-white font-medium">₹{currentPrice.toFixed(2)}</p>
+            <p className="text-white font-medium">₹{typeof currentPrice === "number" ? currentPrice.toFixed(2) : "0.00"}</p>
           </div>
           <div className="flex justify-between items-center">
             <p className="text-slate-300 font-medium">Total {mode === 'BUY' ? 'Cost' : 'Proceeds'}</p>
             <p className={`text-lg font-bold ${mode === 'BUY' ? 'text-red-400' : 'text-green-400'}`}>
-              ₹{stats.totalCost.toFixed(2)}
+              ₹{typeof stats.totalCost === "number" ? stats.totalCost.toFixed(2) : "0.00"}
             </p>
           </div>
         </div>
@@ -156,8 +157,8 @@ export const TradingModal: React.FC<TradingModalProps> = ({
           <div className="bg-blue-500/10 rounded-lg p-3 mb-6 border border-blue-500/20 flex items-start gap-3">
             <Wallet className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-300">
-              <p>Available Balance: <span className="font-semibold">₹{wallet.available_balance.toFixed(2)}</span></p>
-              <p>After Purchase: <span className="font-semibold text-blue-200">₹{(wallet.available_balance - stats.totalCost).toFixed(2)}</span></p>
+              <p>Available Balance: <span className="font-semibold">₹{typeof wallet.available_balance === "number" ? wallet.available_balance.toFixed(2) : "0.00"}</span></p>
+              <p>After Purchase: <span className="font-semibold text-blue-200">₹{typeof (wallet.available_balance - stats.totalCost) === "number" ? (wallet.available_balance - stats.totalCost).toFixed(2) : "0.00"}</span></p>
             </div>
           </div>
         )}
@@ -188,7 +189,7 @@ export const TradingModal: React.FC<TradingModalProps> = ({
                 : 'bg-red-600 hover:bg-red-700'
             }`}
           >
-            {loading ? 'Processing...' : `${mode} ${symbol}`}
+            {loading ? 'Processing...' : `${mode} ${quantityNum} for ₹${stats.totalCost.toFixed(2)}`}
           </button>
         </div>
       </div>

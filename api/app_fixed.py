@@ -89,9 +89,15 @@ class SellRequest(BaseModel):
     quantity: int
 
 class WalletResponse(BaseModel):
-    balance: float
     available_balance: float
     used_balance: float
+    total_balance: float
+    portfolio_value: float
+    pnl: float
+
+class PromptQuery(BaseModel):
+    query: str
+    limit: int = 10
 
 # ==================== DATABASE DEPENDENCY ====================
 
@@ -278,6 +284,44 @@ async def get_active_signals():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/prompt")
+async def handle_prompt(data: PromptQuery):
+    """Handle AI prompt for stock insights"""
+    try:
+        signals = get_stock_signals_with_prices()
+        q = data.query.lower().strip()
+        
+        if "buy" in q or "bullish" in q:
+            results = [s for s in signals if s["signal_type"] == "BUY"]
+            results = sorted(results, key=lambda x: x["confidence"], reverse=True)
+            return {
+                "query": data.query,
+                "intent": "bullish",
+                "results": results[:data.limit],
+                "message": f"Found {len(results)} strong BUY signals"
+            }
+        elif "sell" in q or "bearish" in q:
+            results = [s for s in signals if s["signal_type"] == "SELL"]
+            results = sorted(results, key=lambda x: x["confidence"], reverse=True)
+            return {
+                "query": data.query,
+                "intent": "bearish",
+                "results": results[:data.limit],
+                "message": f"Found {len(results)} SELL signals"
+            }
+        else:
+            # Default search by symbol or name
+            results = [s for s in signals if q in s["symbol"].lower() or q in s["name"].lower()]
+            return {
+                "query": data.query,
+                "intent": "general",
+                "results": results[:data.limit],
+                "message": f"Found {len(results)} matching signals"
+            }
+    except Exception as e:
+        logger.error(f"❌ Prompt error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ==================== PORTFOLIO ENDPOINTS ====================
 
 @app.get("/portfolio")
@@ -288,34 +332,61 @@ async def get_portfolio(authorization: Optional[str] = Header(None), db = Depend
     try:
         wallet = get_wallet(db, user_id)
         holdings = get_user_holdings(db, user_id)
-        total_value = wallet.balance if wallet else 0
+        
+        available_balance = wallet.balance if wallet else 0
+        used_balance = 0
+        portfolio_value = 0
+        
         holdings_list = []
         for holding in holdings:
             try:
+                # 1. Cost Basis Fact
+                holding_investment = holding.quantity * holding.avg_price
+                used_balance += holding_investment
+                
+                # 2. Market Value Fact
                 price_data = get_stock_price(holding.symbol + ".NS")
                 current_price = price_data["price"]
                 current_value = holding.quantity * current_price
-                pnl = current_value - holding.total_investment
-                pnl_percent = (pnl / holding.total_investment * 100) if holding.total_investment > 0 else 0
-                total_value += current_value
+                portfolio_value += current_value
+                
+                # 3. Derived metrics (computed on the fly)
+                h_pnl = current_value - holding_investment
+                h_pnl_percent = (h_pnl / holding_investment * 100) if holding_investment > 0 else 0
+                
                 holdings_list.append({
                     "symbol": holding.symbol,
+                    "name": price_data.get("name", holding.symbol),
                     "quantity": holding.quantity,
                     "avg_price": round(holding.avg_price, 2),
                     "current_price": current_price,
-                    "total_investment": round(holding.total_investment, 2),
+                    "total_investment": round(holding_investment, 2),
                     "current_value": round(current_value, 2),
-                    "pnl": round(pnl, 2),
-                    "pnl_percent": round(pnl_percent, 2)
+                    "pnl": round(h_pnl, 2),
+                    "pnl_percent": round(h_pnl_percent, 2)
                 })
-            except Exception:
+            except Exception as e:
+                logger.warning(f"⚠️ Error calculating metrics for {holding.symbol}: {str(e)}")
                 continue
+        
+        # Core Financial Formulas
+        total_balance = available_balance + used_balance
+        total_pnl = portfolio_value - used_balance
+        total_pnl_percent = (total_pnl / used_balance * 100) if used_balance > 0 else 0
+        
         return {
-            "total_value": round(total_value, 2),
-            "wallet_balance": round(wallet.balance, 2) if wallet else 0,
+            "available_balance": round(available_balance, 2),
+            "used_balance": round(used_balance, 2),
+            "total_balance": round(total_balance, 2),
+            "portfolio_value": round(portfolio_value, 2),
+            "pnl": round(total_pnl, 2),
+            "pnl_percent": round(total_pnl_percent, 2),
             "holdings": holdings_list,
             "number_of_holdings": len(holdings)
         }
+    except Exception as e:
+        logger.error(f"❌ Portfolio error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -368,7 +439,7 @@ async def buy_stock(req: BuyRequest, authorization: Optional[str] = Header(None)
         
         # 2. Validate Wallet
         wallet = get_wallet(db, user_id)
-        if not wallet or wallet.available_balance < total_cost:
+        if not wallet or wallet.balance < total_cost:
             raise HTTPException(status_code=400, detail="Insufficient balance")
         
         # 3. Deduct from wallet
@@ -450,14 +521,33 @@ async def sell_stock(req: SellRequest, authorization: Optional[str] = Header(Non
 
 # ==================== WALLET & TRANSACTIONS ====================
 
-@app.get("/wallet")
+@app.get("/wallet", response_model=WalletResponse)
 async def get_wallet_balance(authorization: Optional[str] = Header(None), db = Depends(get_db)):
     user_id = verify_auth_token(authorization, db)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
     wallet = get_wallet(db, user_id)
+    holdings = get_user_holdings(db, user_id)
+    
+    available_balance = wallet.balance if wallet else 0
+    used_balance = sum(h.quantity * h.avg_price for h in holdings)
+    total_balance = available_balance + used_balance
+    
+    # Calculate portfolio market value
+    portfolio_value = 0
+    for h in holdings:
+        price_data = get_stock_price(h.symbol + ".NS")
+        portfolio_value += h.quantity * price_data["price"]
+        
+    pnl = portfolio_value - used_balance
+    
     return {
-        "balance": wallet.balance,
-        "available_balance": wallet.available_balance,
-        "used_balance": wallet.used_balance
+        "available_balance": round(available_balance, 2),
+        "used_balance": round(used_balance, 2),
+        "total_balance": round(total_balance, 2),
+        "portfolio_value": round(portfolio_value, 2),
+        "pnl": round(pnl, 2)
     }
 
 @app.get("/portfolio/transactions")

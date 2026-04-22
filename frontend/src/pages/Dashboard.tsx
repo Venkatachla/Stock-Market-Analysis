@@ -1,30 +1,27 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { usePolling } from '@/hooks/usePolling';
 import { fetchMarketOverview, fetchStockSignals } from '@/services/api';
 import { mockMarketOverview, mockSignals } from '@/utils/mockData';
 import { formatCurrency, formatPercent, formatLargeNumber } from '@/utils/format';
 import { LoadingState, ErrorState, MetricCard, SignalBadge } from '@/components/common/StatusComponents';
-import { TrendingUp, TrendingDown, BarChart3, Activity, Search, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Activity, Search, Sparkles, X, Wifi } from 'lucide-react';
 import type { StockSignal, MarketOverview } from '@/services/api';
 
 const Dashboard: React.FC = () => {
-  const [prompt, setPrompt] = useState('');
-  const [promptResults, setPromptResults] = useState<any>(null);
-  const [promptLoading, setPromptLoading] = useState(false);
+  // --- ARCHITECTURE: Separate data sources for production UX ---
+  const [marketSignals, setMarketSignals] = useState<StockSignal[]>([]);
+  const [searchResults, setSearchResults] = useState<StockSignal[] | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
   const [pollInfo, setPollInfo] = useState<{lastUpdate: string, pollCount: number}>({lastUpdate: '', pollCount: 0});
 
   const pollMarketData = useCallback(() => {
-    console.log('📊 Fetching market data...');
-    setPollInfo(prev => ({
-      lastUpdate: new Date().toLocaleTimeString(),
-      pollCount: prev.pollCount + 1
-    }));
     return fetchMarketOverview();
   }, []);
 
   const pollSignalsData = useCallback(() => {
-    console.log('🎯 Fetching stock signals...');
+    console.log('🎯 Fetching live signals...');
     setPollInfo(prev => ({
       lastUpdate: new Date().toLocaleTimeString(),
       pollCount: prev.pollCount + 1
@@ -32,135 +29,155 @@ const Dashboard: React.FC = () => {
     return fetchStockSignals();
   }, []);
 
-  // 🔄 REAL-TIME MARKET DATA - Poll every 10 seconds (was 30s)
-  const { data: marketData, loading: mLoading, error: mError, retry: mRetry } = usePolling<MarketOverview>(
+  // 🔄 REAL-TIME MARKET DATA - Poll every 10 seconds (market indices)
+  const { data: marketData, loading: mLoading } = usePolling<MarketOverview>(
     pollMarketData,
-    10000  // ✅ Changed from 30000 to 10000 (10 seconds) for real-time updates
+    10000
   );
   
-  // 🔄 REAL-TIME STOCK SIGNALS - Poll every 8 seconds (was 30s)
-  const { data: signalsData, loading: sLoading, error: sError, retry: sRetry } = usePolling<StockSignal[]>(
+  // 🔄 REAL-TIME STOCK SIGNALS - Poll every 8 seconds (live signals)
+  const { data: signalsData, loading: sLoading } = usePolling<StockSignal[]>(
     pollSignalsData,
-    8000  // ✅ Changed from 30000 to 8000 (8 seconds) for real-time dynamic predictions
+    8000
   );
 
-  // Use real data, no fallback to mock
+  // --- SYNC POLLING TO DISPLAY DATA ---
+  // Protection: DO NOT overwrite if user is viewing search results
+  useEffect(() => {
+    if (!searchResults && signalsData) {
+      setMarketSignals(signalsData);
+    }
+  }, [signalsData, searchResults]);
+
   const market = marketData ?? { indices: [], topGainers: [], topLosers: [], mostActive: [] };
-  const signals = signalsData ?? [];
+
+  // --- SOURCE OF TRUTH ---
+  const activeSignals = searchResults ?? marketSignals;
 
   const stats = useMemo(() => {
-    const buyCount = signals.filter(s => s.signal_type === 'BUY' || s.signal === 'BUY').length;
-    const sellCount = signals.filter(s => s.signal_type === 'SELL' || s.signal === 'SELL').length;
-    return { buyCount, sellCount, total: signals.length };
-  }, [signals]);
+    const buyCount = activeSignals.filter(s => s.signal === 'BUY').length;
+    const sellCount = activeSignals.filter(s => s.signal === 'SELL').length;
+    return { buyCount, sellCount, total: activeSignals.length };
+  }, [activeSignals]);
 
+  // --- DERIVED STATE: LOCAL FILTERING ---
+  const filteredSignals = useMemo(() => {
+    if (!searchQuery) return activeSignals;
+
+    const q = searchQuery.toLowerCase();
+    return activeSignals.filter(signal =>
+      signal.symbol?.toLowerCase().includes(q) ||
+      signal.signal?.toLowerCase().includes(q) ||
+      (signal.name && signal.name.toLowerCase().includes(q))
+    );
+  }, [activeSignals, searchQuery]);
+
+  // --- ACTIONS ---
   const handlePromptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prompt.trim()) return;
+    if (!searchQuery.trim()) return;
     
-    setPromptLoading(true);
+    setLoading(true);
     try {
       const response = await fetch('http://localhost:8000/api/prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: prompt, limit: 10 })
+        body: JSON.stringify({ query: searchQuery, limit: 12 })
       });
+      
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
       const data = await response.json();
-      setPromptResults(data);
+      setSearchResults(data.results || []);
     } catch (error) {
       console.error('Prompt error:', error);
-      // Fallback: search locally in signals
-      const q = prompt.toLowerCase();
-      const results = signals.filter(s => 
+      // Fallback: Use what we have in marketSignals
+      const q = searchQuery.toLowerCase();
+      const fallbackResults = marketSignals.filter(s => 
         s.symbol.toLowerCase().includes(q) || 
-        (s.name && s.name.toLowerCase().includes(q)) || 
-        (q.includes('buy') && s.signal === 'BUY') ||
-        (q.includes('sell') && s.signal === 'SELL')
+        (s.name && s.name.toLowerCase().includes(q))
       );
-      setPromptResults({ query: prompt, results, message: `Found ${results.length} matching signals` });
+      setSearchResults(fallbackResults);
     } finally {
-      setPromptLoading(false);
+      setLoading(false);
     }
   };
 
-  if (mLoading && sLoading) return <LoadingState message="Loading dashboard..." />;
+  const clearSearch = () => {
+    setSearchResults(null);
+    setSearchQuery("");
+  };
+
+  if (mLoading && sLoading && marketSignals.length === 0) return <LoadingState message="Connecting to market..." />;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Market Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Real-time market overview and signals</p>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Market Dashboard</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="flex h-2 w-2 rounded-full bg-signal-buy animate-pulse" />
+            <p className="text-sm text-muted-foreground">Market Pulse Live • {pollInfo.lastUpdate || 'Connecting...'}</p>
+          </div>
+        </div>
+        
+        {searchResults && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 animate-in fade-in slide-in-from-right-4">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-primary">Viewing Custom Results</span>
+            <button 
+              onClick={clearSearch}
+              className="ml-2 p-0.5 rounded-full hover:bg-primary/20 text-primary transition-colors"
+              title="Return to live data"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Prompt Input */}
       <form onSubmit={handlePromptSubmit} className="space-y-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+        <div className="relative group">
+          <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <input
             id="dashboard-search"
             name="search"
             type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Ask anything... 'Show bullish tech stocks', 'High confidence signals', 'My portfolio', etc."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search symbols or ask AI... 'Show bullish tech stocks', 'RELIANCE', etc."
+            className="w-full pl-10 pr-24 py-2.5 rounded-xl border border-border bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
           />
-          <button
-            type="submit"
-            disabled={promptLoading || !prompt.trim()}
-            className="absolute right-2 top-2 p-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            aria-label="Search signals"
-          >
-            <Sparkles className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          💡 Try: "buy signals", "sell signals", "high confidence", "RELIANCE", "portfolio", etc.
-        </div>
-      </form>
-
-      {/* Prompt Results */}
-      {promptResults && (
-        <div className="rounded-lg border border-blue-500/50 bg-blue-500/10 p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <p className="text-sm font-medium text-foreground">Search Results</p>
-              <p className="text-xs text-muted-foreground mt-1">Query: <span className="font-mono text-primary">"{promptResults.query}"</span></p>
-              <p className="text-xs text-muted-foreground">{promptResults.message || `Found ${promptResults.results?.length || 0} results`}</p>
-            </div>
+          <div className="absolute right-2 top-2 flex items-center gap-1">
+            {searchQuery && (
+              <button 
+                type="button"
+                onClick={clearSearch}
+                className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
             <button
-              onClick={() => setPromptResults(null)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              type="submit"
+              disabled={loading || !searchQuery.trim()}
+              className="p-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-2 px-3"
+              aria-label="Search signals"
             >
-              ✕
+              {loading ? (
+                <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  <span className="text-xs font-medium hidden sm:inline">Ask AI</span>
+                </>
+              )}
             </button>
           </div>
-          {promptResults.results && Array.isArray(promptResults.results) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {promptResults.results.map((r: any, i: number) => (
-                <div key={i} className="rounded bg-card border border-border p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-foreground">{r.symbol}</span>
-                    <span className={`text-xs px-2 py-1 rounded ${r.signal_type === 'BUY' ? 'bg-signal-buy/20 text-signal-buy' : 'bg-signal-sell/20 text-signal-sell'}`}>
-                      {r.signal_type}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-2">{r.reason}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Confidence:</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${r.confidence * 100}%` }} />
-                      </div>
-                      <span className="text-xs font-mono text-primary">{(r.confidence * 100).toFixed(0)}%</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      )}
+      </form>
 
       {/* Market Indices */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -180,92 +197,105 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-3 gap-4">
         <MetricCard label="Buy Signals" value={stats.buyCount.toString()} icon={<TrendingUp className="h-4 w-4 text-signal-buy" />} />
         <MetricCard label="Sell Signals" value={stats.sellCount.toString()} icon={<TrendingDown className="h-4 w-4 text-signal-sell" />} />
-        <MetricCard label="Total Tracked" value={stats.total.toString()} icon={<Activity className="h-4 w-4 text-primary" />} />
+        <MetricCard label="Total Visible" value={stats.total.toString()} icon={<Activity className="h-4 w-4 text-primary" />} />
       </div>
 
-      {/* Signals Table */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-card-foreground">Active Signals</h2>
+      {/* Unified Signals Table */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold text-card-foreground">
+              {searchResults ? 'Tailored Insights' : 'Active Market Signals'}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded uppercase tracking-wider font-semibold">
+            <Wifi className={`h-3 w-3 ${!searchResults ? 'text-signal-buy animate-pulse' : 'text-muted-foreground'}`} />
+            {!searchResults ? 'Live Streaming' : 'Static Result'}
+          </div>
         </div>
+        
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" role="table">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Symbol</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Price</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Change</th>
-                <th className="text-center px-4 py-3 font-medium text-muted-foreground">Signal</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Confidence</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Volume</th>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground uppercase text-[10px] tracking-wider">Symbol</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground uppercase text-[10px] tracking-wider hidden sm:table-cell">Price</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground uppercase text-[10px] tracking-wider">Change</th>
+                <th className="text-center px-4 py-3 font-medium text-muted-foreground uppercase text-[10px] tracking-wider">Signal</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground uppercase text-[10px] tracking-wider hidden md:table-cell">Confidence</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground uppercase text-[10px] tracking-wider hidden lg:table-cell">Volume</th>
               </tr>
             </thead>
             <tbody>
-              {signals.map((s) => (
-                <tr key={s.symbol} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <Link to={`/stock/${s.symbol}`} className="font-medium text-foreground hover:text-primary transition-colors">
-                      {s.symbol}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">{s.name}</div>
-                  </td>
-                  <td className="text-right px-4 py-3 font-mono hidden sm:table-cell">{formatCurrency(s.price)}</td>
-                  <td className={`text-right px-4 py-3 font-mono ${s.change >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
-                    {formatPercent(s.changePercent)}
-                  </td>
-                  <td className="text-center px-4 py-3"><SignalBadge signal={s.signal} /></td>
-                  <td className="text-right px-4 py-3 hidden md:table-cell">
-                    <div className="flex items-center justify-end gap-2">
-                      <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${s.confidence * 100}%` }} />
+              {filteredSignals.length > 0 ? (
+                filteredSignals.map((s) => (
+                  <tr key={s.symbol} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <Link to={`/stock/${s.symbol}`} className="font-bold text-foreground hover:text-primary transition-colors flex flex-col">
+                        {s.symbol}
+                        <span className="text-[10px] font-normal text-muted-foreground truncate max-w-[120px]">{s.name}</span>
+                      </Link>
+                    </td>
+                    <td className="text-right px-4 py-3 font-mono font-medium hidden sm:table-cell">{formatCurrency(s.price)}</td>
+                    <td className={`text-right px-4 py-3 font-mono font-medium ${s.change >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
+                      {s.change >= 0 ? '+' : ''}{formatPercent(s.changePercent)}
+                    </td>
+                    <td className="text-center px-4 py-3"><SignalBadge signal={s.signal} /></td>
+                    <td className="text-right px-4 py-3 hidden md:table-cell">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className={`h-full rounded-full ${s.confidence > 0.7 ? 'bg-signal-buy' : 'bg-primary'}`} style={{ width: `${s.confidence * 100}%` }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground tabular-nums">{typeof s.confidence === "number" ? (s.confidence * 100).toFixed(0) : "0"}%</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">{(s.confidence * 100).toFixed(0)}%</span>
-                    </div>
+                    </td>
+                    <td className="text-right px-4 py-3 font-mono text-muted-foreground hidden lg:table-cell">{formatLargeNumber(s.volume)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground italic">
+                    No signals found matching your search.
                   </td>
-                  <td className="text-right px-4 py-3 font-mono text-muted-foreground hidden lg:table-cell">{formatLargeNumber(s.volume)}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Top Movers */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="rounded-lg border border-border bg-card">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="font-semibold text-signal-buy flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Top Gainers</h3>
+      {/* Top Movers Section */}
+      {!searchResults && (
+        <div className="grid md:grid-cols-2 gap-4 animate-in fade-in duration-500">
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+            <div className="px-4 py-3 border-b border-border bg-signal-buy/5">
+              <h3 className="font-semibold text-signal-buy flex items-center gap-2 tracking-tight"><TrendingUp className="h-4 w-4" /> Market Gainers</h3>
+            </div>
+            <div className="divide-y divide-border">
+              {market.topGainers.slice(0, 5).map(s => (
+                <Link key={s.symbol} to={`/stock/${s.symbol}`} className="flex items-center justify-between px-4 py-3 hover:bg-accent/40 transition-colors">
+                  <span className="font-bold text-sm text-foreground">{s.symbol}</span>
+                  <span className="text-sm font-mono font-bold text-signal-buy">{formatPercent(s.changePercent)}</span>
+                </Link>
+              ))}
+            </div>
           </div>
-          <div className="divide-y divide-border">
-            {market.topGainers.slice(0, 5).map(s => (
-              <Link key={s.symbol} to={`/stock/${s.symbol}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-accent/50 transition-colors">
-                <div>
-                  <span className="font-medium text-sm text-foreground">{s.symbol}</span>
-                  <span className="text-xs text-muted-foreground ml-2">{s.name}</span>
-                </div>
-                <span className="text-sm font-mono text-signal-buy">{formatPercent(s.changePercent)}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-lg border border-border bg-card">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="font-semibold text-signal-sell flex items-center gap-2"><TrendingDown className="h-4 w-4" /> Top Losers</h3>
-          </div>
-          <div className="divide-y divide-border">
-            {market.topLosers.slice(0, 5).map(s => (
-              <Link key={s.symbol} to={`/stock/${s.symbol}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-accent/50 transition-colors">
-                <div>
-                  <span className="font-medium text-sm text-foreground">{s.symbol}</span>
-                  <span className="text-xs text-muted-foreground ml-2">{s.name}</span>
-                </div>
-                <span className="text-sm font-mono text-signal-sell">{formatPercent(s.changePercent)}</span>
-              </Link>
-            ))}
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+            <div className="px-4 py-3 border-b border-border bg-signal-sell/5">
+              <h3 className="font-semibold text-signal-sell flex items-center gap-2 tracking-tight"><TrendingDown className="h-4 w-4" /> Market Losers</h3>
+            </div>
+            <div className="divide-y divide-border">
+              {market.topLosers.slice(0, 5).map(s => (
+                <Link key={s.symbol} to={`/stock/${s.symbol}`} className="flex items-center justify-between px-4 py-3 hover:bg-accent/40 transition-colors">
+                  <span className="font-bold text-sm text-foreground">{s.symbol}</span>
+                  <span className="text-sm font-mono font-bold text-signal-sell">{formatPercent(s.changePercent)}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

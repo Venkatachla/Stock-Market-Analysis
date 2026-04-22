@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { createChart, ColorType, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
 import { usePolling } from '@/hooks/usePolling';
-import { fetchStockDetail, fetchOHLC, fetchIndicators, buyStock, sellStock } from '@/services/api';
+import { fetchStockDetail, fetchOHLC, fetchIndicators } from '@/services/api';
+import TradingModal from '@/components/TradingModal';
 import { mockSignals, generateMockOHLC, generateMockIndicators } from '@/utils/mockData';
 import { formatCurrency, formatPercent, formatLargeNumber } from '@/utils/format';
 import { LoadingState, SignalBadge, MetricCard } from '@/components/common/StatusComponents';
@@ -14,6 +15,16 @@ const StockDetail: React.FC = () => {
   const chartRef = useRef<HTMLDivElement>(null);
   const volumeChartRef = useRef<HTMLDivElement>(null);
   const rsiChartRef = useRef<HTMLDivElement>(null);
+  const [tradingOpen, setTradingOpen] = React.useState(false);
+  const [tradingMode, setTradingMode] = React.useState<'BUY' | 'SELL'>('BUY');
+  const token = localStorage.getItem('auth_token') || '';
+  const [notification, setNotification] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
+
   const pollStockDetail = useCallback(
     () => fetchStockDetail(symbol!),
     [symbol]
@@ -164,7 +175,7 @@ const StockDetail: React.FC = () => {
         <MetricCard label="Price" value={formatCurrency(detail.price)} change={formatPercent(detail.changePercent)} positive={detail.change >= 0}
           icon={detail.change >= 0 ? <TrendingUp className="h-4 w-4 text-signal-buy" /> : <TrendingDown className="h-4 w-4 text-signal-sell" />} />
         <MetricCard label="Volume" value={formatLargeNumber(detail.volume)} icon={<BarChart3 className="h-4 w-4 text-primary" />} />
-        <MetricCard label="Confidence" value={`${(detail.confidence * 100).toFixed(0)}%`} icon={<Activity className="h-4 w-4 text-primary" />} />
+        <MetricCard label="Confidence" value={`${typeof detail.confidence === "number" ? (detail.confidence * 100).toFixed(0) : "0"}%`} icon={<Activity className="h-4 w-4 text-primary" />} />
         <MetricCard label="Market Cap" value={detail.marketCap ? formatLargeNumber(detail.marketCap) : 'N/A'} />
       </div>
 
@@ -192,134 +203,63 @@ const StockDetail: React.FC = () => {
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <div className="text-xs text-muted-foreground">MACD</div>
-            <div className="text-lg font-mono text-foreground">{indicators.macd[indicators.macd.length - 1]?.macd.toFixed(2)}</div>
+            <div className="text-lg font-mono text-foreground">{typeof indicators.macd[indicators.macd.length - 1]?.macd === "number" ? indicators.macd[indicators.macd.length - 1].macd.toFixed(2) : "0.00"}</div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Signal</div>
-            <div className="text-lg font-mono text-foreground">{indicators.macd[indicators.macd.length - 1]?.signal.toFixed(2)}</div>
+            <div className="text-lg font-mono text-foreground">{typeof indicators.macd[indicators.macd.length - 1]?.signal === "number" ? indicators.macd[indicators.macd.length - 1].signal.toFixed(2) : "0.00"}</div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Histogram</div>
             <div className={`text-lg font-mono ${(indicators.macd[indicators.macd.length - 1]?.histogram ?? 0) >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
-              {indicators.macd[indicators.macd.length - 1]?.histogram.toFixed(2)}
+              {typeof indicators.macd[indicators.macd.length - 1]?.histogram === "number" ? indicators.macd[indicators.macd.length - 1].histogram.toFixed(2) : "0.00"}
             </div>
           </div>
         </div>
       </div>
 
       {/* Trading Action Buttons */}
-      <TradingPanel stock={detail} />
+      <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+        <h2 className="font-semibold text-card-foreground text-lg text-center mb-4">Execute Trade</h2>
+        {notification && (
+          <div className={`p-3 rounded-md text-sm mb-4 ${
+            notification.type === 'success'
+              ? 'bg-signal-buy/20 text-signal-buy border border-signal-buy/50'
+              : 'bg-signal-sell/20 text-signal-sell border border-signal-sell/50'
+          }`}>
+            {notification.message}
+          </div>
+        )}
+        <div className="flex gap-4">
+          <button
+            onClick={() => { setTradingMode('BUY'); setTradingOpen(true); }}
+            className="flex-1 px-6 py-3 rounded-lg bg-signal-buy text-white font-bold hover:bg-signal-buy/90 transition-all transform hover:scale-[1.02]"
+          >
+            BUY {detail.symbol}
+          </button>
+          <button
+            onClick={() => { setTradingMode('SELL'); setTradingOpen(true); }}
+            className="flex-1 px-6 py-3 rounded-lg bg-signal-sell text-white font-bold hover:bg-signal-sell/90 transition-all transform hover:scale-[1.02]"
+          >
+            SELL {detail.symbol}
+          </button>
+        </div>
+      </div>
+
+      <TradingModal
+        key={`${detail.symbol}-${detail.price}-${tradingOpen}`}
+        isOpen={tradingOpen}
+        onClose={() => setTradingOpen(false)}
+        symbol={detail.symbol}
+        currentPrice={Number(detail.price)}
+        mode={tradingMode}
+        token={token}
+        onSuccess={(msg) => { showNotification('success', msg); }}
+        onError={(msg) => { showNotification('error', msg); }}
+      />
     </div>
   );
 };
 
-// Trading Panel Component — uses shared axios service (not raw fetch)
-const TradingPanel: React.FC<{ stock: StockSignal }> = ({ stock }) => {
-  const [quantity, setQuantity] = React.useState(1);
-  const [loading, setLoading] = React.useState(false);
-  const [message, setMessage] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const handleTrade = async (action: 'buy' | 'sell') => {
-    if (quantity <= 0) {
-      setMessage({ type: 'error', text: 'Quantity must be greater than 0' });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        setMessage({ type: 'error', text: 'Please login to trade' });
-        return;
-      }
-
-      // Use shared axios service — consistent auth headers, interceptors, error handling
-      if (action === 'buy') {
-        await buyStock(token, stock.symbol, quantity);
-      } else {
-        await sellStock(token, stock.symbol, quantity);
-      }
-
-      setMessage({
-        type: 'success',
-        text: `${action.toUpperCase()} successful! ${quantity} shares of ${stock.symbol} @ ₹${stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-      });
-      setQuantity(1);
-      setTimeout(() => setMessage(null), 5000);
-    } catch (error: any) {
-      const errMsg = error.response?.data?.detail || `${action} failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      setMessage({ type: 'error', text: errMsg });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-      <h2 className="font-semibold text-card-foreground text-lg">Execute Trade</h2>
-
-      {message && (
-        <div className={`p-3 rounded-md text-sm ${
-          message.type === 'success'
-            ? 'bg-signal-buy/20 text-signal-buy border border-signal-buy/50'
-            : 'bg-signal-sell/20 text-signal-sell border border-signal-sell/50'
-        }`}>
-          {message.text}
-        </div>
-      )}
-
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="stock-detail-quantity" className="text-sm text-muted-foreground block mb-2">Quantity</label>
-            <input
-              id="stock-detail-quantity"
-              name="quantity"
-              type="number"
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground block mb-2">Price per share</label>
-            <div className="px-3 py-2 rounded-md border border-border bg-muted text-foreground">
-              ₹{stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm text-muted-foreground block mb-2">Total Amount</label>
-          <div className="px-3 py-2 rounded-md border border-border bg-muted text-foreground font-mono text-lg">
-            ₹{(quantity * stock.price).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex gap-3">
-        <button
-          onClick={() => handleTrade('buy')}
-          disabled={loading}
-          className="flex-1 px-4 py-2.5 rounded-md bg-signal-buy text-white font-medium hover:bg-signal-buy/90 disabled:opacity-50 transition-colors"
-        >
-          {loading ? 'Processing...' : `BUY ${quantity} @ ₹${stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
-        </button>
-        <button
-          onClick={() => handleTrade('sell')}
-          disabled={loading}
-          className="flex-1 px-4 py-2.5 rounded-md bg-signal-sell text-white font-medium hover:bg-signal-sell/90 disabled:opacity-50 transition-colors"
-        >
-          {loading ? 'Processing...' : `SELL ${quantity} @ ₹${stock.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
-        </button>
-      </div>
-
-      <p className="text-xs text-muted-foreground text-center">
-        💡 Note: Prices shown are real-time from backend. {stock.signal === 'BUY' ? '✓ AI recommends BUY' : stock.signal === 'SELL' ? '✓ AI recommends SELL' : 'Neutral signal'}
-      </p>
-    </div>
-  );
-};
 
 export default React.memo(StockDetail);

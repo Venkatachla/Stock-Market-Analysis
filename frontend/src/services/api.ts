@@ -198,6 +198,40 @@ function transformBackendChart(data: BackendChartData): OHLC {
   };
 }
 
+function transformBackendHolding(h: any): PortfolioHolding {
+  return {
+    symbol: h.symbol,
+    name: h.name ?? h.symbol,
+    quantity: h.quantity,
+    avgPrice: h.avg_price ?? 0,
+    currentPrice: h.current_price ?? 0,
+    pnl: h.pnl ?? 0,
+    pnlPercent: h.pnl_percent ?? 0,
+    allocation: h.allocation ?? 0,
+    signal: (h.signal ?? 'NEUTRAL').toUpperCase() as 'BUY' | 'SELL' | 'NEUTRAL',
+  };
+}
+
+function transformBackendWallet(w: any): Wallet {
+  return {
+    available_balance: w.available_balance ?? 0,
+    used_balance: w.used_balance ?? 0,
+    total_balance: w.balance ?? w.total_balance ?? 0,
+  };
+}
+
+function transformBackendPortfolio(data: any): Portfolio {
+  return {
+    wallet: transformBackendWallet(data.wallet ?? {}),
+    portfolio_value: data.total_value ?? 0,
+    total_invested: data.total_invested ?? 0,
+    pnl: data.total_pnl ?? 0,
+    pnl_percent: data.total_pnl_percent ?? 0,
+    holdings: (data.holdings ?? []).map(transformBackendHolding),
+    number_of_holdings: data.number_of_holdings ?? 0,
+  };
+}
+
 // ============ API FUNCTIONS - MAPPED TO STOCK BACKEND ============
 
 /**
@@ -496,16 +530,16 @@ export const getCurrentUser = async (token: string): Promise<unknown> => {
 // ============ WALLET FUNCTIONS ============
 
 export interface Wallet {
-  balance: number;
   available_balance: number;
   used_balance: number;
+  total_balance: number;
 }
 
 export const getWallet = async (token: string): Promise<Wallet> => {
   const response = await api.get('/wallet', {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return response.data;
+  return transformBackendWallet(response.data);
 };
 
 export const addDemoFunds = async (token: string, amount: number): Promise<unknown> => {
@@ -565,8 +599,11 @@ export interface Transaction {
 }
 
 export interface Portfolio {
-  total_value: number;
-  wallet: Wallet;  // FIX: backend returns nested wallet object, not flat wallet_balance
+  wallet: Wallet;
+  portfolio_value: number;
+  total_invested: number;
+  pnl: number;
+  pnl_percent: number;
   holdings: PortfolioHolding[];
   number_of_holdings: number;
 }
@@ -575,7 +612,7 @@ export const getPortfolio = async (token: string): Promise<Portfolio> => {
   const response = await api.get('/portfolio', {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return response.data;
+  return transformBackendPortfolio(response.data);
 };
 
 export const getTransactions = async (token: string, limit: number = 50): Promise<Transaction[]> => {

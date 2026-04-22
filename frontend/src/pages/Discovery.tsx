@@ -103,7 +103,7 @@ const Discovery: React.FC = () => {
             <div className="mt-3">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
                 <span>Confidence</span>
-                <span>{(s.confidence * 100).toFixed(0)}%</span>
+                <span>{typeof s.confidence === "number" ? (s.confidence * 100).toFixed(0) : "0"}%</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
                 <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${s.confidence * 100}%` }} />

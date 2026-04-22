@@ -42,9 +42,7 @@ class Wallet(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False, index=True)
-    balance = Column(Float, default=0.0, nullable=False)
-    used_balance = Column(Float, default=0.0, nullable=False)
-    available_balance = Column(Float, default=0.0, nullable=False)
+    balance = Column(Float, default=0.0, nullable=False) # Represents wallet_cash (available funds)
     created_at = Column(String, nullable=False, default=lambda: datetime.utcnow().isoformat())
     updated_at = Column(String, nullable=False, default=lambda: datetime.utcnow().isoformat())
     
@@ -60,11 +58,6 @@ class Holding(Base):
     symbol = Column(String, nullable=False, index=True)
     quantity = Column(Integer, default=0, nullable=False)
     avg_price = Column(Float, nullable=False)
-    current_price = Column(Float, nullable=False)
-    total_investment = Column(Float, nullable=False)
-    current_value = Column(Float, nullable=False)
-    pnl = Column(Float, nullable=False)
-    pnl_percent = Column(Float, nullable=False)
     purchase_date = Column(String, nullable=False)
     created_at = Column(String, nullable=False, default=lambda: datetime.utcnow().isoformat())
     updated_at = Column(String, nullable=False, default=lambda: datetime.utcnow().isoformat())
