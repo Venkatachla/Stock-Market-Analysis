@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { usePolling } from '@/hooks/usePolling';
-import { getPortfolio, getTransactions, Transaction } from '@/services/api';
+import { useQuery } from '@tanstack/react-query';
+import { getPortfolio, getTransactions, getWallet, Transaction } from '@/services/api';
 import { mockPortfolio } from '@/utils/mockData';
 import { formatCurrency, formatPercent } from '@/utils/format';
 import { SignalBadge, MetricCard } from '@/components/common/StatusComponents';
@@ -29,10 +30,19 @@ const Portfolio: React.FC = () => {
     [token]
   );
 
+  // 1. Fetch Portfolio (Includes holdings)
   const { data: portfolioData, retry: retryPortfolio } = usePolling(
     pollPortfolio,
     10000
   );
+
+  // 2. Fetch Wallet Separately (Case A - Reliable Source of Truth)
+  const { data: walletData } = useQuery({
+    queryKey: ["wallet", token],
+    queryFn: () => getWallet(token!),
+    enabled: !!token,
+    refetchInterval: 10000, // Sync with portfolio polling
+  });
 
   const { data: transactionsData, retry: retryTransactions } = usePolling(
     pollTransactions,
@@ -41,27 +51,63 @@ const Portfolio: React.FC = () => {
 
   // Use real portfolio data from backend
   const portfolio = portfolioData?.holdings ?? [];
-  // FIX: backend returns nested wallet object { balance, available_balance, used_balance }
-  // not a flat portfolioData.wallet_balance field
-  const wallet = portfolioData ? {
-    balance: (portfolioData as any).wallet?.balance ?? 0,
-    available_balance: (portfolioData as any).wallet?.available_balance ?? 0,
-    used_balance: (portfolioData as any).wallet?.used_balance ?? 0,
-  } : { balance: 0, available_balance: 0, used_balance: 0 };
   const transactions = transactionsData ?? [];
 
-  const stats = useMemo(() => {
-    const totalValue = portfolioData?.total_value ?? 0;
-    const totalInvested = portfolio.reduce((sum, h) => sum + (h.total_investment || 0), 0);
-    const totalPnl = totalValue - totalInvested;
-    const totalPnlPercent = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
-    return { totalValue, totalInvested, totalPnl, totalPnlPercent };
-  }, [portfolioData, portfolio]);
+  // PART 3 - FINAL SOURCE OF TRUTH
+  // Combine sources and handle string numbers (Case C)
+  const rawWallet = walletData ?? portfolioData?.wallet ?? null;
+  
+  const wallet = useMemo(() => {
+    if (!rawWallet) return null;
+    return {
+      total_balance: typeof rawWallet.total_balance === 'string' ? parseFloat(rawWallet.total_balance) : rawWallet.total_balance,
+      available_balance: typeof rawWallet.available_balance === 'string' ? parseFloat(rawWallet.available_balance) : rawWallet.available_balance,
+      used_balance: typeof rawWallet.used_balance === 'string' ? parseFloat(rawWallet.used_balance) : rawWallet.used_balance,
+    };
+  }, [rawWallet]);
+
+  if (wallet && wallet.total_balance === 0 && (portfolio.length > 0)) {
+    console.warn("Wallet values are zero - check backend");
+  }
+
+  const holdings = portfolioData?.holdings ?? [];
+  const totalInvested = holdings.reduce((sum, h) => {
+    const qty = Number(h.quantity ?? 0);
+    const avg = Number(h.avgPrice ?? 0);
+    return sum + qty * avg;
+  }, 0);
+
+  const totalValue = holdings.reduce((sum, h) => {
+    const qty = Number(h.quantity ?? 0);
+    const current = Number(h.currentPrice ?? 0);
+    return sum + qty * current;
+  }, 0);
+
+  const totalPnl = totalValue - totalInvested;
+  const totalPnlPercent = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
+
+  const allocationTotalValue = holdings.reduce((sum, h) => {
+    const qty = Number(h.quantity ?? 0);
+    const current = Number(h.currentPrice ?? h.current_price ?? 0) || Number(h.avgPrice ?? h.avg_price ?? 0);
+    return sum + (qty * current);
+  }, 0);
+
+  const metrics = {
+    totalValue,
+    totalInvested,
+    totalPnl,
+    totalPnlPercent,
+    total: wallet?.total_balance,
+    available: wallet?.available_balance,
+    used: wallet?.used_balance,
+  };
 
   const handleBuy = (holding: PortfolioHolding | { symbol: string; price: number }) => {
+    const price = 'price' in holding ? holding.price : (holding as PortfolioHolding).currentPrice;
     setSelectedStock({
+      ...holding,
       symbol: holding.symbol,
-      price: 'price' in holding ? holding.price : (holding as PortfolioHolding).currentPrice,
+      price: Number(price),
     });
     setTradingMode('BUY');
     setTradingOpen(true);
@@ -69,9 +115,10 @@ const Portfolio: React.FC = () => {
 
   const handleSell = (holding: PortfolioHolding) => {
     setSelectedStock({
+      ...holding,
       symbol: holding.symbol,
-      price: holding.currentPrice,
-      quantity: holding.quantity,
+      price: Number(holding.currentPrice),
+      quantity: Number(holding.quantity),
     });
     setTradingMode('SELL');
     setTradingOpen(true);
@@ -134,53 +181,73 @@ const Portfolio: React.FC = () => {
             <span className="text-slate-300 text-sm">Total Balance</span>
             <Wallet className="h-4 w-4 text-blue-400" />
           </div>
-          <p className="text-2xl font-bold text-blue-300">₹{wallet.balance.toFixed(2)}</p>
-          <p className="text-xs text-slate-400 mt-1">Available: ₹{wallet.available_balance.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-blue-300">
+            ₹{typeof metrics.total === "number" ? metrics.total.toFixed(2) : "--"}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Available: ₹{typeof metrics.available === "number" ? metrics.available.toFixed(2) : "--"}
+          </p>
         </div>
 
-        <MetricCard label="Portfolio Value" value={formatCurrency(stats.totalValue)} icon={<PieChart className="h-4 w-4 text-primary" />} />
+        <MetricCard label="Portfolio Value" value={`₹${metrics.totalValue.toFixed(2)}`} icon={<PieChart className="h-4 w-4 text-primary" />} />
         <MetricCard
           label="Total P&L"
-          value={formatCurrency(stats.totalPnl)}
-          change={formatPercent(stats.totalPnlPercent)}
-          positive={stats.totalPnl >= 0}
-          icon={stats.totalPnl >= 0 ? <TrendingUp className="h-4 w-4 text-signal-buy" /> : <TrendingDown className="h-4 w-4 text-signal-sell" />}
+          value={`₹${metrics.totalPnl.toFixed(2)}`}
+          change={`${metrics.totalPnlPercent.toFixed(2)}%`}
+          positive={metrics.totalPnl >= 0}
+          icon={metrics.totalPnl >= 0 ? <TrendingUp className="h-4 w-4 text-signal-buy" /> : <TrendingDown className="h-4 w-4 text-signal-sell" />}
         />
       </div>
 
       {/* Main Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="Invested" value={formatCurrency(stats.totalInvested)} />
-        <MetricCard label="Holdings" value={portfolio.length.toString()} />
-        <MetricCard label="Used Balance" value={formatCurrency(wallet.used_balance)} />
-        <MetricCard label="Available" value={formatCurrency(wallet.available_balance)} />
-      </div>
+  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <MetricCard label="Invested" value={`₹${metrics.totalInvested.toFixed(2)}`} />
+    <MetricCard label="Holdings" value={portfolio.length.toString()} />
+    <MetricCard label="Used Balance" value={typeof metrics.used === "number" ? `₹${metrics.used.toFixed(2)}` : "--"} />
+    <MetricCard label="Available" value={typeof metrics.available === "number" ? `₹${metrics.available.toFixed(2)}` : "--"} />
+  </div>
 
       {/* Allocation visual */}
       {portfolio.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
           <h2 className="font-semibold text-card-foreground mb-4">Allocation</h2>
           <div className="flex h-6 rounded-full overflow-hidden">
-            {portfolio.map((h, i) => (
-              <div
-                key={h.symbol}
-                className="relative group"
-                style={{ width: `${h.allocation}%`, backgroundColor: COLORS[i % COLORS.length] }}
-                title={`${h.symbol}: ${h.allocation}%`}
-              >
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded text-xs font-medium bg-popover text-popover-foreground border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                  {h.symbol}: {h.allocation}%
+            {portfolio.map((h, i) => {
+              const qty = Number(h.quantity ?? 0);
+              const current = Number(h.currentPrice ?? h.current_price ?? 0) || Number(h.avgPrice ?? h.avg_price ?? 0);
+              const stockValue = qty * current;
+              const allocation = allocationTotalValue > 0 ? (stockValue / allocationTotalValue) * 100 : 0;
+              const displayPercent = allocation > 0 ? `${allocation.toFixed(2)}%` : "0%";
+
+              return (
+                <div
+                  key={h.symbol}
+                  className="relative group"
+                  style={{ width: `${allocation}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                  title={`${h.symbol}: ${displayPercent}`}
+                >
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded text-xs font-medium bg-popover text-popover-foreground border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                    {h.symbol}: {displayPercent}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="flex flex-wrap gap-3 mt-3">
-            {portfolio.map((h, i) => (
-              <div key={h.symbol} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                {h.symbol} ({h.allocation}%)
-              </div>
-            ))}
+            {portfolio.map((h, i) => {
+              const qty = Number(h.quantity ?? 0);
+              const current = Number(h.currentPrice ?? h.current_price ?? 0) || Number(h.avgPrice ?? h.avg_price ?? 0);
+              const stockValue = qty * current;
+              const allocation = allocationTotalValue > 0 ? (stockValue / allocationTotalValue) * 100 : 0;
+              const displayPercent = allocation > 0 ? `${allocation.toFixed(2)}%` : "0%";
+
+              return (
+                <div key={h.symbol} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                  {h.symbol} ({displayPercent})
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -206,12 +273,12 @@ const Portfolio: React.FC = () => {
               </thead>
               <tbody>
                 {portfolio.map((h) => {
-                  // Ensure all fields have safe defaults
-                  const safePnl = h.pnl ?? 0;
-                  const safePnlPercent = h.pnlPercent ?? 0;
-                  const safeAvgPrice = h.avgPrice ?? 0;
-                  const safeCurrentPrice = h.currentPrice ?? 0;
-                  const safeQuantity = h.quantity ?? 0;
+                  // Use fields from transformer
+                  const avgPrice = h.avgPrice;
+                  const currentPrice = h.currentPrice;
+                  const pnl = h.pnl;
+                  const pnlPercent = h.pnlPercent;
+                  const quantity = h.quantity;
                   
                   return (
                     <tr key={h.symbol} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
@@ -221,12 +288,16 @@ const Portfolio: React.FC = () => {
                         </Link>
                         <div className="text-xs text-muted-foreground">{h.name || 'N/A'}</div>
                       </td>
-                      <td className="text-right px-4 py-3 font-mono hidden sm:table-cell">{safeQuantity}</td>
-                      <td className="text-right px-4 py-3 font-mono hidden md:table-cell">{formatCurrency(safeAvgPrice)}</td>
-                      <td className="text-right px-4 py-3 font-mono">{formatCurrency(safeCurrentPrice)}</td>
-                      <td className={`text-right px-4 py-3 font-mono ${safePnl >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
-                        {formatCurrency(safePnl)}
-                        <div className="text-xs">{formatPercent(safePnlPercent)}</div>
+                      <td className="text-right px-4 py-3 font-mono hidden sm:table-cell">{quantity ?? 0}</td>
+                      <td className="text-right px-4 py-3 font-mono hidden md:table-cell">
+                        {typeof avgPrice === "number" ? `₹${avgPrice.toFixed(2)}` : "--"}
+                      </td>
+                      <td className="text-right px-4 py-3 font-mono">
+                        {typeof currentPrice === "number" ? `₹${currentPrice.toFixed(2)}` : "--"}
+                      </td>
+                      <td className={`text-right px-4 py-3 font-mono ${(pnl ?? 0) >= 0 ? 'text-signal-buy' : 'text-signal-sell'}`}>
+                        {typeof pnl === "number" ? `₹${pnl.toFixed(2)}` : "--"}
+                        <div className="text-xs">{typeof pnlPercent === "number" ? `${pnlPercent.toFixed(2)}%` : "--"}</div>
                       </td>
                       <td className="text-center px-4 py-3 hidden lg:table-cell">
                         <SignalBadge signal={h.signal || 'NEUTRAL'} />
@@ -284,7 +355,7 @@ const Portfolio: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <p className={`font-medium ${t.type === 'BUY' || t.type === 'DEPOSIT' ? 'text-red-400' : 'text-green-400'}`}>
-                    {t.type === 'BUY' || t.type === 'DEPOSIT' ? '-' : '+'} ₹{t.total_amount.toFixed(2)}
+                    {t.type === 'BUY' || t.type === 'DEPOSIT' ? '-' : '+'} ₹{typeof t.total_amount === "number" ? t.total_amount.toFixed(2) : "0.00"}
                   </p>
                   <p className={`text-xs ${t.status === 'SUCCESS' ? 'text-green-500' : t.status === 'FAILED' ? 'text-red-500' : 'text-yellow-500'}`}>
                     {t.status}
@@ -310,10 +381,11 @@ const Portfolio: React.FC = () => {
 
       {selectedStock && (
         <TradingModal
+          key={`${selectedStock.symbol}-${selectedStock.price}-${tradingOpen}`}
           isOpen={tradingOpen}
           onClose={() => setTradingOpen(false)}
           symbol={selectedStock.symbol}
-          currentPrice={selectedStock.price}
+          currentPrice={Number(selectedStock.price)}
           mode={tradingMode}
           maxQuantity={selectedStock.quantity}
           token={token}

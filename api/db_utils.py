@@ -73,8 +73,6 @@ def create_wallet(db: Session, user_id: int, initial_balance: float = 0.0) -> Wa
     wallet = Wallet(
         user_id=user_id,
         balance=initial_balance,
-        used_balance=0.0,
-        available_balance=initial_balance,
         created_at=datetime.utcnow().isoformat(),
         updated_at=datetime.utcnow().isoformat()
     )
@@ -93,42 +91,29 @@ def get_wallet(db: Session, user_id: int, lock: bool = False) -> Optional[Wallet
 
 
 def add_to_wallet(db: Session, user_id: int, amount: float) -> bool:
-    """Add money to wallet"""
+    """Add money to wallet (Deposit/Sell Proceeds)"""
     wallet = get_wallet(db, user_id)
     if not wallet:
         return False
     
     wallet.balance += amount
-    wallet.available_balance += amount
     wallet.updated_at = datetime.utcnow().isoformat()
     # db.commit() - Controlled at route level
     return True
 
 
 def deduct_from_wallet(db: Session, user_id: int, amount: float) -> bool:
-    """Deduct money from wallet (lock funds for purchase)"""
+    """Deduct money from wallet (Buy order)"""
     wallet = get_wallet(db, user_id)
-    if not wallet or wallet.available_balance < amount:
+    if not wallet or wallet.balance < amount:
         return False
     
-    wallet.available_balance -= amount
-    wallet.used_balance += amount
+    wallet.balance -= amount
     wallet.updated_at = datetime.utcnow().isoformat()
     # db.commit() - Controlled at route level
     return True
 
 
-def refund_to_wallet(db: Session, user_id: int, amount: float) -> bool:
-    """Refund money to wallet (release locked funds)"""
-    wallet = get_wallet(db, user_id)
-    if not wallet:
-        return False
-    
-    wallet.available_balance += amount
-    wallet.used_balance = max(0, wallet.used_balance - amount)
-    wallet.updated_at = datetime.utcnow().isoformat()
-    # db.commit() - Controlled at route level
-    return True
 
 
 # ====================== HOLDING FUNCTIONS ======================
@@ -156,11 +141,6 @@ def get_or_create_holding(db: Session, user_id: int, symbol: str) -> Holding:
         symbol=symbol,
         quantity=0,
         avg_price=0.0,
-        current_price=0.0,
-        total_investment=0.0,
-        current_value=0.0,
-        pnl=0.0,
-        pnl_percent=0.0,
         purchase_date=datetime.utcnow().isoformat(),
         created_at=datetime.utcnow().isoformat(),
         updated_at=datetime.utcnow().isoformat()
@@ -186,13 +166,8 @@ def update_holding_after_buy(db: Session, holding: Holding, quantity: int, price
         # Calculate new average price using old quantity
         total_cost = (old_qty * holding.avg_price) + (quantity * price)
         holding.avg_price = total_cost / new_qty
-    # Always update quantity regardless of branch
+    
     holding.quantity = new_qty
-    holding.current_price = price
-    holding.total_investment = holding.quantity * holding.avg_price
-    holding.current_value = holding.quantity * holding.current_price
-    holding.pnl = holding.current_value - holding.total_investment
-    holding.pnl_percent = (holding.pnl / holding.total_investment * 100) if holding.total_investment > 0 else 0
     holding.updated_at = datetime.utcnow().isoformat()
     # db.commit() - Controlled at route level
 
@@ -205,11 +180,6 @@ def update_holding_after_sell(db: Session, holding: Holding, quantity: int, pric
         db.delete(holding)
     else:
         holding.quantity -= quantity
-        holding.current_price = price
-        holding.total_investment = holding.quantity * holding.avg_price
-        holding.current_value = holding.quantity * holding.current_price
-        holding.pnl = holding.current_value - holding.total_investment
-        holding.pnl_percent = (holding.pnl / holding.total_investment * 100) if holding.total_investment > 0 else 0
         holding.updated_at = datetime.utcnow().isoformat()
     
     # db.commit() - Controlled at route level

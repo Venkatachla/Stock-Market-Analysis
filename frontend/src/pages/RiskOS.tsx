@@ -34,17 +34,17 @@ const RiskOS: React.FC = () => {
 
       {/* Risk Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <MetricCard label="Value at Risk (95%)" value={`${metrics.portfolioVar.toFixed(2)}%`}
+        <MetricCard label="Value at Risk (95%)" value={`${typeof metrics.portfolioVar === "number" ? metrics.portfolioVar.toFixed(2) : "0.00"}%`}
           icon={<AlertTriangle className="h-4 w-4 text-signal-sell" />} />
-        <MetricCard label="Sharpe Ratio" value={metrics.sharpeRatio.toFixed(2)}
+        <MetricCard label="Sharpe Ratio" value={typeof metrics.sharpeRatio === "number" ? metrics.sharpeRatio.toFixed(2) : "0.00"}
           positive={metrics.sharpeRatio > 1}
           change={metrics.sharpeRatio > 1 ? 'Good' : 'Below average'}
           icon={<Shield className="h-4 w-4 text-primary" />} />
-        <MetricCard label="Beta" value={metrics.beta.toFixed(2)}
+        <MetricCard label="Beta" value={typeof metrics.beta === "number" ? metrics.beta.toFixed(2) : "0.00"}
           icon={<Activity className="h-4 w-4 text-primary" />} />
-        <MetricCard label="Max Drawdown" value={`${metrics.maxDrawdown.toFixed(2)}%`}
+        <MetricCard label="Max Drawdown" value={`${typeof metrics.maxDrawdown === "number" ? metrics.maxDrawdown.toFixed(2) : "0.00"}%`}
           icon={<TrendingDown className="h-4 w-4 text-signal-sell" />} />
-        <MetricCard label="Volatility" value={`${metrics.volatility.toFixed(1)}%`}
+        <MetricCard label="Volatility" value={`${typeof metrics.volatility === "number" ? metrics.volatility.toFixed(1) : "0.0"}%`}
           change={riskLevel.label}
           positive={riskLevel.label === 'Low'}
           icon={<Activity className="h-4 w-4 text-primary" />} />
@@ -66,13 +66,13 @@ const RiskOS: React.FC = () => {
           </div>
           <div className="space-y-2 text-sm">
             <p className="text-muted-foreground">
-              Portfolio volatility is <span className={`font-semibold ${riskLevel.color}`}>{metrics.volatility.toFixed(1)}%</span> annualized.
+              Portfolio volatility is <span className={`font-semibold ${riskLevel.color}`}>{typeof metrics.volatility === "number" ? metrics.volatility.toFixed(1) : "0.0"}%</span> annualized.
             </p>
             <p className="text-muted-foreground">
-              With a VaR of {metrics.portfolioVar.toFixed(2)}%, there is a 5% chance of losing more than this in a single day.
+              With a VaR of {typeof metrics.portfolioVar === "number" ? metrics.portfolioVar.toFixed(2) : "0.00"}%, there is a 5% chance of losing more than this in a single day.
             </p>
             <p className="text-muted-foreground">
-              Sharpe ratio of {metrics.sharpeRatio.toFixed(2)} indicates {metrics.sharpeRatio > 1 ? 'good' : 'suboptimal'} risk-adjusted returns.
+              Sharpe ratio of {typeof metrics.sharpeRatio === "number" ? metrics.sharpeRatio.toFixed(2) : "0.00"} indicates {metrics.sharpeRatio > 1 ? 'good' : 'suboptimal'} risk-adjusted returns.
             </p>
           </div>
         </div>
@@ -105,7 +105,7 @@ const RiskOS: React.FC = () => {
                           : 'bg-signal-buy/10';
                     return (
                       <td key={col} className={`px-3 py-2 text-center font-mono text-xs ${bg} rounded`}>
-                        {val.toFixed(2)}
+                        {typeof val === "number" ? val.toFixed(2) : "0.00"}
                       </td>
                     );
                   })}

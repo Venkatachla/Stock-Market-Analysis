@@ -178,7 +178,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({
               <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg p-6 border border-blue-500/20">
                 <p className="text-slate-400 text-sm">Total Balance</p>
                 <p className="text-4xl font-bold text-blue-300 mt-2">
-                  ₹{wallet?.balance.toFixed(2) || '0.00'}
+                  ₹{typeof wallet?.total_balance === "number" ? wallet.total_balance.toFixed(2) : "0.00"}
                 </p>
               </div>
 
@@ -186,13 +186,13 @@ export const WalletModal: React.FC<WalletModalProps> = ({
                 <div className="bg-slate-700/50 rounded-lg p-4">
                   <p className="text-slate-400 text-xs">Available</p>
                   <p className="text-lg font-bold text-green-400 mt-2">
-                    ₹{wallet?.available_balance.toFixed(2) || '0.00'}
+                  ₹{typeof wallet?.available_balance === "number" ? wallet.available_balance.toFixed(2) : "0.00"}
                   </p>
                 </div>
                 <div className="bg-slate-700/50 rounded-lg p-4">
                   <p className="text-slate-400 text-xs">Used</p>
                   <p className="text-lg font-bold text-orange-400 mt-2">
-                    ₹{wallet?.used_balance.toFixed(2) || '0.00'}
+                  ₹{typeof wallet?.used_balance === "number" ? wallet.used_balance.toFixed(2) : "0.00"}
                   </p>
                 </div>
               </div>
