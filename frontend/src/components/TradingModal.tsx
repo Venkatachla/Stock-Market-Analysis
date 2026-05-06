@@ -79,8 +79,9 @@ export const TradingModal: React.FC<TradingModalProps> = ({
       }
       setQuantity(1);
       onClose();
-    } catch (error: any) {
-      onError(error.response?.data?.detail || `Failed to ${mode === 'BUY' ? 'buy' : 'sell'}`);
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      onError(detail || `Failed to ${mode === 'BUY' ? 'buy' : 'sell'}`);
     } finally {
       setLoading(false);
     }

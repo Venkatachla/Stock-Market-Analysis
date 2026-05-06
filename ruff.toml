@@ -1,0 +1,8 @@
+exclude = [
+  "api/_archive",
+  "venv",
+  "__pycache__"
+]
+
+[lint]
+ignore = ["E402"]

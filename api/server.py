@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import asyncio
 from functools import lru_cache
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 import joblib
@@ -21,7 +21,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
-from pymongo import MongoClient, ASCENDING
+from pymongo import MongoClient
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from features.engineer import FEATURE_COLUMNS
@@ -423,7 +423,7 @@ def predict(symbol: str):
                 "lstm": {"signal": "BUY" if (result["detail"]["lstm"] or 0.5) > 0.65 else "SELL" if (result["detail"]["lstm"] or 0.5) < 0.35 else "NEUTRAL", "confidence": (result["detail"]["lstm"] or 0.5) * 100} if result["detail"]["lstm"] else None
             }
         }
-    except HTTPException as e:
+    except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error predicting {symbol}: {str(e)}")
