@@ -2,7 +2,7 @@ name: Build & Deploy
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, sonar-cleanup]
   pull_request:
     branches: [main]
 
