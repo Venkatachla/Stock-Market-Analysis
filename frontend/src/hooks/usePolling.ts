@@ -34,9 +34,9 @@ export function usePolling<T>(
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
     } finally {
       inFlightRef.current = false;
-      if (!isMountedRef.current) return;
-      setLoading(false);
     }
+    if (!isMountedRef.current) return;
+    setLoading(false);
   }, []);
 
   const retry = useCallback(() => {

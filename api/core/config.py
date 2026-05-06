@@ -2,7 +2,6 @@
 Configuration management using Pydantic BaseSettings.
 Loads all configuration from environment variables.
 """
-import os
 from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings

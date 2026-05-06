@@ -11,17 +11,16 @@ Production FastAPI Backend - StockPulse Trading System
 import os
 os.environ["PYTHONWARNINGS"] = "ignore::ResourceWarning"
 
-from fastapi import FastAPI, HTTPException, Header, Depends, status
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
-from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
+from datetime import datetime
+from typing import List, Optional, Dict
 import sqlite3
 import json
 import hashlib
 import hmac
 import time
-from functools import lru_cache
 
 # ======================== DATABASE SETUP ========================
 
@@ -255,7 +254,7 @@ def verify_jwt_token(token: str) -> Optional[Dict]:
             return None
         
         return payload
-    except:
+    except Exception:
         return None
 
 def get_current_user(authorization: Optional[str] = Header(None)) -> int:
@@ -573,7 +572,7 @@ def create_payment_order(order_data: PaymentOrderRequest, user_id: int = Depends
             "currency": "INR",
             "key_id": RAZORPAY_KEY_ID
         }
-    except Exception as e:
+    except Exception:
         # Fallback: demo mode
         order_id = f"order_{user_id}_{int(time.time())}"
         return {

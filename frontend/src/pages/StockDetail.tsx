@@ -80,25 +80,25 @@ const StockDetail: React.FC = () => {
       wickUpColor: '#22c55e',
       wickDownColor: '#ef4444',
     });
-    candleSeries.setData(ohlcData.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close })) as any);
+    candleSeries.setData(ohlcData.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close })) as Parameters<typeof candleSeries.setData>[0]);
 
     // SMA 20
     const sma20Series = chart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1 });
     sma20Series.setData(
-      indicators.sma20.map((v, i) => ({ time: ohlcData[i].time, value: v })).filter((_, i) => i >= 19) as any
+      indicators.sma20.map((v, i) => ({ time: ohlcData[i].time, value: v })).filter((_, i) => i >= 19) as Parameters<typeof sma20Series.setData>[0]
     );
 
     // SMA 50
     const sma50Series = chart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 1 });
     sma50Series.setData(
-      indicators.sma50.map((v, i) => ({ time: ohlcData[i].time, value: v })).filter((_, i) => i >= 49) as any
+      indicators.sma50.map((v, i) => ({ time: ohlcData[i].time, value: v })).filter((_, i) => i >= 49) as Parameters<typeof sma50Series.setData>[0]
     );
 
     // Bollinger Bands
     const bbUpper = chart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1, lineStyle: 2 });
-    bbUpper.setData(indicators.bollingerBands.map((b, i) => ({ time: ohlcData[i].time, value: b.upper })) as any);
+    bbUpper.setData(indicators.bollingerBands.map((b, i) => ({ time: ohlcData[i].time, value: b.upper })) as Parameters<typeof bbUpper.setData>[0]);
     const bbLower = chart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1, lineStyle: 2 });
-    bbLower.setData(indicators.bollingerBands.map((b, i) => ({ time: ohlcData[i].time, value: b.lower })) as any);
+    bbLower.setData(indicators.bollingerBands.map((b, i) => ({ time: ohlcData[i].time, value: b.lower })) as Parameters<typeof bbLower.setData>[0]);
 
     chart.timeScale().fitContent();
 
@@ -122,7 +122,7 @@ const StockDetail: React.FC = () => {
     volSeries.setData(ohlcData.map(d => ({
       time: d.time, value: d.volume,
       color: d.close >= d.open ? '#22c55e80' : '#ef444480',
-    })) as any);
+    })) as Parameters<typeof volSeries.setData>[0]);
     chart.timeScale().fitContent();
     const handleResize = () => chart.applyOptions({ width: container.clientWidth });
     window.addEventListener('resize', handleResize);
@@ -141,13 +141,13 @@ const StockDetail: React.FC = () => {
       timeScale: { borderColor: isDark ? '#374151' : '#e5e7eb' },
     });
     const rsiSeries = chart.addSeries(LineSeries, { color: '#a855f7', lineWidth: 2 });
-    rsiSeries.setData(indicators.rsi.map((v, i) => ({ time: ohlcData[i].time, value: v })) as any);
+    rsiSeries.setData(indicators.rsi.map((v, i) => ({ time: ohlcData[i].time, value: v })) as Parameters<typeof rsiSeries.setData>[0]);
 
     // Overbought/Oversold lines
     const ob = chart.addSeries(LineSeries, { color: '#ef444460', lineWidth: 1, lineStyle: 2 });
-    ob.setData(ohlcData.map(d => ({ time: d.time, value: 70 })) as any);
+    ob.setData(ohlcData.map(d => ({ time: d.time, value: 70 })) as Parameters<typeof ob.setData>[0]);
     const os = chart.addSeries(LineSeries, { color: '#22c55e60', lineWidth: 1, lineStyle: 2 });
-    os.setData(ohlcData.map(d => ({ time: d.time, value: 30 })) as any);
+    os.setData(ohlcData.map(d => ({ time: d.time, value: 30 })) as Parameters<typeof os.setData>[0]);
 
     chart.timeScale().fitContent();
     const handleResize = () => chart.applyOptions({ width: container.clientWidth });

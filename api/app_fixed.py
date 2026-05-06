@@ -8,7 +8,7 @@ import sys
 import logging
 from typing import List, Optional, Dict, Any
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import lru_cache
 
 os.environ["PYTHONWARNINGS"] = "ignore::ResourceWarning"
@@ -28,11 +28,10 @@ import yfinance as yf
 
 # Import from existing modules
 try:
-    from api.auth import hash_password, verify_password, create_access_token, verify_token
-    from api.models import SessionLocal, User, Wallet, Holding, Transaction
+    from api.auth import verify_password, create_access_token, verify_token
+    from api.models import SessionLocal
     from api.db_utils import (
-        create_user, get_user_by_email, get_user_by_id, verify_user_password,
-        get_wallet, add_to_wallet, deduct_from_wallet,
+        create_user, get_user_by_email, get_user_by_id, get_wallet, add_to_wallet, deduct_from_wallet,
         get_or_create_holding, get_user_holdings, update_holding_after_buy, 
         update_holding_after_sell, create_transaction, get_user_transactions
     )
