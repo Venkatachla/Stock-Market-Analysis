@@ -87,7 +87,7 @@ python FINAL_TEST.py
 Run: `python verify_cleanup.py` (all 9 checks pass)
 
 ### Key Files:
-- Backend: `api/app.py`, `api/auth.py`, `api/routes.py`
+- Backend: `api/app_fixed.py`, `api/auth.py`, `api/routes.py`
 - Frontend: `frontend/src/pages/`, `frontend/src/components/`
 - ML Services: `api/services/model_loader.py`, `api/services/predictor.py`
 - Config: `api/core/config.py`, `.env.example`

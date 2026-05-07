@@ -13,7 +13,7 @@ interface WalletModalProps {
 
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: new (options: unknown) => { open: () => void };
   }
 }
 
@@ -54,8 +54,9 @@ export const WalletModal: React.FC<WalletModalProps> = ({
       onWalletUpdate?.(updatedWallet);
       onSuccess(`₹${amountNum} added to wallet (Demo)`);
       setAmount('1000');
-    } catch (error: any) {
-      onError(error.response?.data?.detail || 'Failed to add funds');
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      onError(detail || 'Failed to add funds');
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({
         amount: Math.round(amountNum * 100), // Amount in paise
         currency: 'INR',
         order_id: orderData.order_id,
-        handler: async (response: any) => {
+        handler: async (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
           try {
             // Verify payment
             await verifyPayment(token, {
@@ -99,8 +100,9 @@ export const WalletModal: React.FC<WalletModalProps> = ({
             onWalletUpdate?.(updatedWallet);
             onSuccess(`₹${amountNum} added to wallet`);
             setAmount('1000');
-          } catch (error: any) {
-            onError(error.response?.data?.detail || 'Payment verification failed');
+          } catch (error: unknown) {
+            const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+            onError(detail || 'Payment verification failed');
           } finally {
             setLoading(false);  // Always reset loading after payment handler completes
           }
@@ -121,8 +123,9 @@ export const WalletModal: React.FC<WalletModalProps> = ({
       };
 
       new window.Razorpay(options).open();
-    } catch (error: any) {
-      onError(error.response?.data?.detail || 'Failed to create payment order');
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      onError(detail || 'Failed to create payment order');
       setLoading(false);
     }
   };

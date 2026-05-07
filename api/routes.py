@@ -1,17 +1,16 @@
 """
 FastAPI routes for authentication, trading, portfolio, and payments.
 """
-from datetime import datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
 import yfinance as yf
 from sqlalchemy.orm import Session
 
-from api.models import get_db, User, Wallet, Holding, Transaction
-from api.auth import hash_password, create_access_token, verify_token
+from api.models import get_db, User, Holding
+from api.auth import create_access_token, verify_token
 from api.db_utils import (
-    create_user, get_user_by_email, get_user_by_id, verify_user_password,
+    create_user, get_user_by_email, verify_user_password,
     update_user_token, get_wallet, add_to_wallet, deduct_from_wallet, refund_to_wallet,
     get_or_create_holding, get_user_holdings, update_holding_after_buy, update_holding_after_sell,
     create_transaction, get_user_transactions, get_transaction_by_order_id, update_transaction_status

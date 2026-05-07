@@ -182,10 +182,10 @@ def _apply_portfolio_risk_rules(trades: pd.DataFrame, cfg: Config, capital: floa
     accepted = []
     day_pnl = 0.0
     streak = 0
-    current_day = None
+    _current_day = None
 
     for day, day_df in data.groupby("date", sort=True):
-        current_day = day
+        _current_day = day
         day_pnl = 0.0
         taken = 0
 

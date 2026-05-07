@@ -49,7 +49,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     if hashed_password.startswith("$2"):
         try:
             return pwd_context.verify(plain_password, hashed_password)
-        except:
+        except Exception:
             pass
     
     return False

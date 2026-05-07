@@ -5,7 +5,7 @@ Supports multiple ensemble strategies: majority vote, weighted average.
 """
 import numpy as np
 import torch
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, Tuple, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)

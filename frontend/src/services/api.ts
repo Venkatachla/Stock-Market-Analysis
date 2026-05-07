@@ -198,37 +198,37 @@ function transformBackendChart(data: BackendChartData): OHLC {
   };
 }
 
-function transformBackendHolding(h: any): PortfolioHolding {
+function transformBackendHolding(h: Record<string, unknown>): PortfolioHolding {
   return {
-    symbol: h.symbol,
-    name: h.name ?? h.symbol,
-    quantity: h.quantity,
-    avgPrice: h.avg_price ?? 0,
-    currentPrice: h.current_price ?? 0,
-    pnl: h.pnl ?? 0,
-    pnlPercent: h.pnl_percent ?? 0,
-    allocation: h.allocation ?? 0,
-    signal: (h.signal ?? 'NEUTRAL').toUpperCase() as 'BUY' | 'SELL' | 'NEUTRAL',
+    symbol: h.symbol as string,
+    name: (h.name as string) ?? (h.symbol as string),
+    quantity: h.quantity as number,
+    avgPrice: (h.avg_price as number) ?? 0,
+    currentPrice: (h.current_price as number) ?? 0,
+    pnl: (h.pnl as number) ?? 0,
+    pnlPercent: (h.pnl_percent as number) ?? 0,
+    allocation: (h.allocation as number) ?? 0,
+    signal: (((h.signal as string) ?? 'NEUTRAL').toUpperCase()) as 'BUY' | 'SELL' | 'NEUTRAL',
   };
 }
 
-function transformBackendWallet(w: any): Wallet {
+function transformBackendWallet(w: Record<string, unknown>): Wallet {
   return {
-    available_balance: w.available_balance ?? 0,
-    used_balance: w.used_balance ?? 0,
-    total_balance: w.balance ?? w.total_balance ?? 0,
+    available_balance: (w.available_balance as number) ?? 0,
+    used_balance: (w.used_balance as number) ?? 0,
+    total_balance: (w.balance as number) ?? (w.total_balance as number) ?? 0,
   };
 }
 
-function transformBackendPortfolio(data: any): Portfolio {
+function transformBackendPortfolio(data: Record<string, unknown>): Portfolio {
   return {
-    wallet: transformBackendWallet(data.wallet ?? {}),
-    portfolio_value: data.total_value ?? 0,
-    total_invested: data.total_invested ?? 0,
-    pnl: data.total_pnl ?? 0,
-    pnl_percent: data.total_pnl_percent ?? 0,
-    holdings: (data.holdings ?? []).map(transformBackendHolding),
-    number_of_holdings: data.number_of_holdings ?? 0,
+    wallet: transformBackendWallet((data.wallet as Record<string, unknown>) ?? {}),
+    portfolio_value: (data.total_value as number) ?? 0,
+    total_invested: (data.total_invested as number) ?? 0,
+    pnl: (data.total_pnl as number) ?? 0,
+    pnl_percent: (data.total_pnl_percent as number) ?? 0,
+    holdings: ((data.holdings as Record<string, unknown>[]) ?? []).map(transformBackendHolding),
+    number_of_holdings: (data.number_of_holdings as number) ?? 0,
   };
 }
 

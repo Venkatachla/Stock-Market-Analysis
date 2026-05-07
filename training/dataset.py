@@ -116,7 +116,7 @@ def prepare_dataset(df: pd.DataFrame, n_splits: int = 4, normalize_per_stock: bo
         else:
             fold_scaler = StandardScaler().fit(train_df[feature_cols])
             X_train_f = fold_scaler.transform(train_df[feature_cols])
-            X_val_f = fold_scaler.transform(val_df[feature_cols])
+            _X_val_f = fold_scaler.transform(val_df[feature_cols])
             X_test_f = fold_scaler.transform(test_df[feature_cols])
         folds.append((X_train_f, train_df["target"].values, X_test_f, test_df["target"].values))
         final_train_df, final_val_df, final_test_df = train_df, val_df, test_df

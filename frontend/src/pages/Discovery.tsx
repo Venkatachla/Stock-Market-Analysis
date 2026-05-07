@@ -65,10 +65,10 @@ const Discovery: React.FC = () => {
         <select id="discovery-sector" name="sector" value={sector} onChange={(e) => setSector(e.target.value)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Filter by sector">
           {sectors.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select id="discovery-signal" name="signal" value={signalFilter} onChange={(e) => setSignalFilter(e.target.value as any)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Filter by signal">
+        <select id="discovery-signal" name="signal" value={signalFilter} onChange={(e) => setSignalFilter(e.target.value as typeof signalFilters[number])} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Filter by signal">
           {signalFilters.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select id="discovery-sort" name="sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Sort by">
+        <select id="discovery-sort" name="sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as 'change' | 'volume' | 'confidence')} className="px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground" aria-label="Sort by">
           <option value="confidence">Confidence</option>
           <option value="change">Change %</option>
           <option value="volume">Volume</option>

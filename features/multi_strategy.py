@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from ta.momentum import RSIIndicator
-from ta.trend import ADXIndicator, EMAIndicator, MACD
+from ta.trend import ADXIndicator, MACD
 from ta.volatility import AverageTrueRange
 
 
@@ -63,7 +63,7 @@ def build_feature_frame(df: pd.DataFrame, index_df: pd.DataFrame | None = None) 
     breakout_flag = np.where(close > resistance_zone.shift(1), 1, np.where(close < support_zone.shift(1), -1, 0))
     liquidity_sweep = np.where((high > resistance_zone.shift(1)) & (close < resistance_zone.shift(1)), 1, 0)
 
-    candle_body = (close - pd.to_numeric(df["Open"], errors="coerce")).abs()
+    _candle_body = (close - pd.to_numeric(df["Open"], errors="coerce")).abs()
     candle_range = (high - low).replace(0, np.nan)
     candle_bias = ((close - pd.to_numeric(df["Open"], errors="coerce")) / (candle_range + 1e-9)).clip(-1, 1)
 
