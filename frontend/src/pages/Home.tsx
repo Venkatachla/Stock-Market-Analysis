@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { TrendingUp, Zap, BarChart3, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
+const API_DOCS_URL = `${import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '')}/docs`;
+
 const Home: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
@@ -95,7 +97,7 @@ const Home: React.FC = () => {
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a
-              href="http://localhost:8000/docs"
+              href={API_DOCS_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-4 border border-slate-600 hover:border-slate-500 rounded-lg font-bold transition-colors hover:bg-slate-800"
@@ -202,7 +204,7 @@ const Home: React.FC = () => {
       {/* Footer */}
       <footer className="py-12 px-4 border-t border-slate-700 bg-slate-900/50">
         <div className="max-w-7xl mx-auto text-center text-slate-400 text-sm">
-          <p>&copy; 2026 StockPulse. All rights reserved. | <a href="http://localhost:8000/docs" className="text-blue-400 hover:text-blue-300">API Documentation</a></p>
+          <p>&copy; 2026 StockPulse. All rights reserved. | <a href={API_DOCS_URL} className="text-blue-400 hover:text-blue-300">API Documentation</a></p>
         </div>
       </footer>
     </div>

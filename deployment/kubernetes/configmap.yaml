@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stockpulse-config
+  labels:
+    app: stockpulse
+data:
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  DATABASE_URL: "sqlite:///./db.sqlite3"
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+  PYTHON_ENV: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"

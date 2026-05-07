@@ -8,6 +8,8 @@ import { LoadingState, ErrorState, MetricCard, SignalBadge } from '@/components/
 import { TrendingUp, TrendingDown, BarChart3, Activity, Search, Sparkles, X, Wifi } from 'lucide-react';
 import type { StockSignal, MarketOverview } from '@/services/api';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '');
+
 const Dashboard: React.FC = () => {
   // --- ARCHITECTURE: Separate data sources for production UX ---
   const [marketSignals, setMarketSignals] = useState<StockSignal[]>([]);
@@ -79,7 +81,7 @@ const Dashboard: React.FC = () => {
     
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/prompt', {
+      const response = await fetch(`${API_BASE}/api/prompt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: searchQuery, limit: 12 })
