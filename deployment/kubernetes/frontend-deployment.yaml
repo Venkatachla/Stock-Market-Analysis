@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: stockpulse-frontend
-  namespace: default
+  namespace: stockpulse
   labels:
     app: stockpulse-frontend
     version: v1
