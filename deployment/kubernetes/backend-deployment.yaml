@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stockpulse-backend
+  labels:
+    app: stockpulse
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stockpulse
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: stockpulse
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          # Replace with your actual Docker Hub image repository/tag.
+          image: your-dockerhub-username/stockpulse-backend:v1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: stockpulse-config
+            - secretRef:
+                name: stockpulse-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

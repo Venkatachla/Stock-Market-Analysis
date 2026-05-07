@@ -7,6 +7,7 @@ import { formatCurrency, formatPercent, formatLargeNumber } from '@/utils/format
 import { LoadingState, ErrorState, MetricCard, SignalBadge } from '@/components/common/StatusComponents';
 import { TrendingUp, TrendingDown, BarChart3, Activity, Search, Sparkles, X, Wifi } from 'lucide-react';
 import type { StockSignal, MarketOverview } from '@/services/api';
+import { API_BASE } from '@/config/api';
 
 const Dashboard: React.FC = () => {
   // --- ARCHITECTURE: Separate data sources for production UX ---
@@ -79,7 +80,7 @@ const Dashboard: React.FC = () => {
     
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/prompt', {
+      const response = await fetch(`${API_BASE}/api/prompt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: searchQuery, limit: 12 })
