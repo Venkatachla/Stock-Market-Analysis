@@ -53,12 +53,12 @@ jobs:
           echo "✅ Backend code is syntactically valid"
       
       # Frontend setup
-      - name: Set up Node.js 20
+      - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json' 
+          cache-dependency-path: 'frontend/package-lock.json'
       
       - name: Install frontend dependencies
         run: |
@@ -178,6 +178,75 @@ jobs:
           name: frontend-build-${{ matrix.node-version }}
           path: frontend/dist/
           retention-days: 7
+
+  sonar:
+    name: SonarCloud Analysis
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    # Run on pushes to main/develop and on PRs targeting main
+    if: >
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'))
+      || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full clone required for SCM blame data & PR decoration
+
+      # --- Generate Frontend Coverage Report ---
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run frontend tests with coverage
+        run: |
+          cd frontend
+          npx vitest run --coverage --coverage.provider=v8 --coverage.reporter=lcov --coverage.reportsDirectory=coverage
+
+      # --- Generate Backend Coverage Report ---
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run backend tests with coverage
+        run: |
+          EXIT_CODE=0
+          python -m pytest --cov=api --cov=backtest --cov=features --cov=training --cov=utils --cov=strategy --cov=trading --cov-report=xml:coverage.xml || EXIT_CODE=$?
+          # Exit code 5 = no tests collected (acceptable when no test files exist yet)
+          # Exit code 0 = tests passed
+          # Any other exit code = real failure, must propagate
+          if [ "$EXIT_CODE" -eq 5 ]; then
+            echo "No backend tests found — skipping coverage"
+          elif [ "$EXIT_CODE" -ne 0 ]; then
+            echo "Backend tests FAILED with exit code $EXIT_CODE"
+            exit $EXIT_CODE
+          fi
+          # Ensure coverage.xml exists for SonarCloud (even if empty)
+          if [ ! -f coverage.xml ]; then
+            echo '<?xml version="1.0" ?><coverage version="5.5"><packages></packages></coverage>' > coverage.xml
+          fi
+
+      # --- SonarCloud Analysis ---
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   deploy:
     name: Deploy to Production
