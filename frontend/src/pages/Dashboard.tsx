@@ -7,8 +7,7 @@ import { formatCurrency, formatPercent, formatLargeNumber } from '@/utils/format
 import { LoadingState, ErrorState, MetricCard, SignalBadge } from '@/components/common/StatusComponents';
 import { TrendingUp, TrendingDown, BarChart3, Activity, Search, Sparkles, X, Wifi } from 'lucide-react';
 import type { StockSignal, MarketOverview } from '@/services/api';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '');
+import { API_BASE } from '@/config/api';
 
 const Dashboard: React.FC = () => {
   // --- ARCHITECTURE: Separate data sources for production UX ---

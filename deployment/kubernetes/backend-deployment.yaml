@@ -19,7 +19,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: your-dockerhub-username/stockpulse-backend:latest
+          # Replace with your actual Docker Hub image repository/tag.
+          image: your-dockerhub-username/stockpulse-backend:v1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000

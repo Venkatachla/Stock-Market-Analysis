@@ -2,8 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { TrendingUp, Zap, BarChart3, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-
-const API_DOCS_URL = `${import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '')}/docs`;
+import { API_DOCS_URL } from '@/config/api';
 
 const Home: React.FC = () => {
   const { isAuthenticated } = useAuth();

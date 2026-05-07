@@ -19,7 +19,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: your-dockerhub-username/stockpulse-frontend:latest
+          # Replace with your actual Docker Hub image repository/tag.
+          image: your-dockerhub-username/stockpulse-frontend:v1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
