@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stcok-frontend
+  namespace: stcok
+  labels:
+    app: stcok-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stcok-frontend
+  template:
+    metadata:
+      labels:
+        app: stcok-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: stcok-frontend:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5173
+          name: http
+        env:
+        - name: VITE_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: stcok-config
+              key: VITE_API_URL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5173
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5173
+          initialDelaySeconds: 5
+          periodSeconds: 5
