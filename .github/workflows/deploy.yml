@@ -1,4 +1,4 @@
-name: Build & Deploy
+name: DevSecOps Pipeline
 
 on:
   push:
