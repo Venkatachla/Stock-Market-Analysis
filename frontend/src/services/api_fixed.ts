@@ -197,21 +197,21 @@ export interface Portfolio {
  * Fetch user portfolio
  */
 export async function fetchPortfolio(token: string): Promise<Portfolio> {
-  return apiCall<Portfolio>('/portfolio', 'GET', undefined, token);
+  return apiCall<Portfolio>('/api/portfolio', 'GET', undefined, token);
 }
 
 /**
  * Fetch wallet balance
  */
 export async function fetchWallet(token: string): Promise<any> {
-  return apiCall('/wallet', 'GET', undefined, token);
+  return apiCall('/api/wallet', 'GET', undefined, token);
 }
 
 /**
  * Fetch transaction history
  */
 export async function fetchTransactions(token: string): Promise<any> {
-  return apiCall('/portfolio/transactions', 'GET', undefined, token);
+  return apiCall('/api/portfolio/transactions', 'GET', undefined, token);
 }
 
 // ==================== TRADING ENDPOINTS ====================

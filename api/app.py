@@ -157,10 +157,23 @@ def _quiet_resource_warnings(message, category, filename, lineno, file=None, lin
 
 warnings.showwarning = _quiet_resource_warnings
 
-# CORS middleware
+# CORS middleware - support development and production URLs
+allowed_origins = [
+    "http://localhost:5173",       # Vite dev
+    "http://localhost:3000",       # React dev
+    "http://localhost:8080",       # Alternative dev port
+    "http://localhost:8000",       # Backend dev
+    os.getenv("FRONTEND_URL", ""),  # Production frontend URL
+    os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [],
+]
+# Flatten and clean up the list
+allowed_origins = [url for url in allowed_origins if url and url.strip()]
+if not allowed_origins:  # Fallback for development
+    allowed_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins if len(allowed_origins) > 1 or allowed_origins[0] != "http://localhost:8000" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1356,18 +1369,14 @@ def predict_single(symbol: str, timeframe: str = "1d") -> Optional[StockPredicti
                 + w.get("lstm", 0.1) * lstm_val
             )
 
-        # Intraday should be mostly tape-driven; reduce news influence for next-candle direction.
-        if tf_norm in {"1m", "5m", "15m"}:
-            sentiment_weight = 0.0
-        elif intraday_mode:
-            sentiment_weight = min(SENTIMENT_WEIGHT, 0.03)
-        else:
-            sentiment_weight = SENTIMENT_WEIGHT
-
-        # News-aware probability adjustment: positive headlines increase buy bias, negative decrease it.
-        prob_up = prob_up + (sentiment_weight * sentiment_score)
+        # ⚠️ CRITICAL FIX: CONFIDENCE = PURE ML PROBABILITY (NO NEWS)
+        # News sentiment is kept SEPARATE and informational only
+        # Do NOT mix news with ML confidence
         prob_up = _safe_float(max(0.0, min(1.0, _safe_float(prob_up, 0.5))), 0.5)
         prob_down = 1.0 - prob_up
+        
+        # sentiment_score is kept for reference, NOT for confidence calculation
+        # It will be returned separately as news_sentiment_score
 
         latest_price = _safe_float(features_df["close"].iloc[-1], 0.0)
         date_str = str(features_df["date"].iloc[-1])

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -536,7 +536,7 @@ export interface Wallet {
 }
 
 export const getWallet = async (token: string): Promise<Wallet> => {
-  const response = await api.get('/wallet', {
+  const response = await api.get('/api/wallet', {
     headers: { Authorization: `Bearer ${token}` },
   });
   return transformBackendWallet(response.data);
@@ -609,14 +609,14 @@ export interface Portfolio {
 }
 
 export const getPortfolio = async (token: string): Promise<Portfolio> => {
-  const response = await api.get('/portfolio', {
+  const response = await api.get('/api/portfolio', {
     headers: { Authorization: `Bearer ${token}` },
   });
   return transformBackendPortfolio(response.data);
 };
 
 export const getTransactions = async (token: string, limit: number = 50): Promise<Transaction[]> => {
-  const response = await api.get(`/portfolio/transactions`, {
+  const response = await api.get(`/api/portfolio/transactions`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data?.transactions ?? response.data ?? [];

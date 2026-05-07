@@ -104,5 +104,9 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+        db.commit()  # ✅ FIX: Persist changes to database
+    except Exception:
+        db.rollback()  # ✅ Rollback on error
+        raise
     finally:
         db.close()

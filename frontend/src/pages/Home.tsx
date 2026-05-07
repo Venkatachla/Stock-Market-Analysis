@@ -95,7 +95,7 @@ const Home: React.FC = () => {
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a
-              href="http://localhost:8000/docs"
+              href={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/docs`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-4 border border-slate-600 hover:border-slate-500 rounded-lg font-bold transition-colors hover:bg-slate-800"
