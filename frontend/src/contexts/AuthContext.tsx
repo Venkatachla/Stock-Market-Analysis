@@ -21,12 +21,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+interface ErrorResponse {
+  detail?: string;
+  message?: string;
+}
+
 const extractErrorMessage = async (response: Response, fallback: string): Promise<string> => {
   const body = await response.text();
   if (!body) return fallback;
 
   try {
-    const parsed = JSON.parse(body) as { detail?: string; message?: string };
+    const parsed = JSON.parse(body) as ErrorResponse;
     return parsed.detail || parsed.message || fallback;
   } catch {
     return body;
