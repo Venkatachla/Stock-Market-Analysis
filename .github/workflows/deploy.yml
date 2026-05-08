@@ -184,9 +184,9 @@ jobs:
     name: SonarCloud Analysis
     needs: test-and-build
     runs-on: ubuntu-latest
-    # Run on pushes to main/develop and on PRs targeting main
+    # Run on pushes to main/develop/sonar-coverage and on PRs targeting main
     if: >
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'))
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/sonar-coverage'))
       || github.event_name == 'pull_request'
 
     steps:
