@@ -150,7 +150,7 @@ jobs:
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: sonar-analysis
+    needs: build-test
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd')
     
     permissions:
@@ -164,61 +164,26 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Extract metadata for backend
-        id: backend_meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+      - name: Build backend image
+        run: |
+          docker build -t venkatachalav/stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
 
-      - name: Extract metadata for frontend
-        id: frontend_meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+      - name: Build frontend image
+        run: |
+          docker build -t venkatachalav/stockpulse-frontend:latest -f deployment/docker/frontend/Dockerfile .
 
-      - name: Build backend image (without push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./deployment/docker/backend/Dockerfile
-          push: false
-          tags: ${{ steps.backend_meta.outputs.tags }}
-          labels: ${{ steps.backend_meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:buildcache
-          outputs: type=docker
-
-      - name: Build frontend image (without push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./deployment/docker/frontend/Dockerfile
-          push: false
-          tags: ${{ steps.frontend_meta.outputs.tags }}
-          labels: ${{ steps.frontend_meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:buildcache
-          outputs: type=docker
+      - name: Verify Docker Images
+        run: docker images
 
       - name: Verify backend image built
         run: |
           echo "✅ Backend Docker image built successfully"
-          echo "Image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest"
+          echo "Image: venkatachalav/stockpulse-backend:latest"
 
       - name: Verify frontend image built
         run: |
           echo "✅ Frontend Docker image built successfully"
-          echo "Image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest"
+          echo "Image: venkatachalav/stockpulse-frontend:latest"
 
   # ═══════════════════════════════════════════════════════════
   # JOB 4: DOCKER PUSH
@@ -234,12 +199,13 @@ jobs:
       packages: write
     
     steps:
-      - name: Verify Docker secrets
+      - name: Validate Docker Secrets
         run: |
-          if [ -z "$DOCKER_USERNAME" ] || [ -z "$DOCKER_PASSWORD" ]; then
+          if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
             echo "❌ Missing DOCKER_USERNAME or DOCKER_PASSWORD"
             exit 1
           fi
+          echo "✅ Docker secrets configured"
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -248,64 +214,39 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build backend image for push
         run: |
-          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          docker build -t venkatachalav/stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
 
-      - name: Extract metadata for backend
-        id: backend_meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+      - name: Build frontend image for push
+        run: |
+          docker build -t venkatachalav/stockpulse-frontend:latest -f deployment/docker/frontend/Dockerfile .
 
-      - name: Extract metadata for frontend
-        id: frontend_meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+      - name: Verify Docker Images
+        run: docker images
 
-      - name: Build and push backend image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./deployment/docker/backend/Dockerfile
-          push: true
-          tags: ${{ steps.backend_meta.outputs.tags }}
-          labels: ${{ steps.backend_meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:buildcache,mode=max
+      - name: Push backend image
+        run: |
+          docker push venkatachalav/stockpulse-backend:latest
 
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./deployment/docker/frontend/Dockerfile
-          push: true
-          tags: ${{ steps.frontend_meta.outputs.tags }}
-          labels: ${{ steps.frontend_meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:buildcache,mode=max
+      - name: Push frontend image
+        run: |
+          docker push venkatachalav/stockpulse-frontend:latest
 
       - name: Log backend image tags
         run: |
           echo "✅ Backend image pushed successfully"
-          echo "Tags: ${{ steps.backend_meta.outputs.tags }}"
+          echo "Tags: venkatachalav/stockpulse-backend:latest"
 
       - name: Log frontend image tags
         run: |
           echo "✅ Frontend image pushed successfully"
-          echo "Tags: ${{ steps.frontend_meta.outputs.tags }}"
+          echo "Tags: venkatachalav/stockpulse-frontend:latest"
 
   # ═══════════════════════════════════════════════════════════
   # JOB 5: KUBERNETES DEPLOY
