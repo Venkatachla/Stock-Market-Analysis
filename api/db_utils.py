@@ -114,6 +114,17 @@ def deduct_from_wallet(db: Session, user_id: int, amount: float) -> bool:
     return True
 
 
+def refund_to_wallet(db: Session, user_id: int, amount: float) -> bool:  # ✅ FIX: Add missing function
+    """Refund money to wallet (used for trade rollback)"""
+    wallet = get_wallet(db, user_id)
+    if not wallet:
+        return False
+    
+    wallet.balance += amount
+    wallet.updated_at = datetime.utcnow().isoformat()
+    return True
+
+
 
 
 # ====================== HOLDING FUNCTIONS ======================

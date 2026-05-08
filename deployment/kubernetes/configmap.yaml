@@ -2,15 +2,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: stockpulse-config
-  labels:
-    app: stockpulse
+  namespace: stockpulse
 data:
-  API_HOST: "0.0.0.0"
-  API_PORT: "8000"
-  # SQLite is suitable for development/demo; use external DB or persistent storage for production.
-  DATABASE_URL: "sqlite:///./db.sqlite3"
-  ALGORITHM: "HS256"
-  ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
-  PYTHON_ENV: "production"
-  DEBUG: "false"
-  LOG_LEVEL: "INFO"
+  ENVIRONMENT: production
+  LOG_LEVEL: info
+  DATABASE_HOST: postgresql
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: stockpulse
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  API_TIMEOUT: "30"
+  MAX_CONNECTIONS: "100"

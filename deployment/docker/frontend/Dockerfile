@@ -1,18 +1,35 @@
-FROM node:20-alpine AS build
+# Build stage
+FROM node:18-alpine as builder
 
 WORKDIR /app
 
+# Copy package files
 COPY frontend/package*.json ./
+
+# Install dependencies
 RUN npm ci
 
-COPY frontend .
+# Copy source code
+COPY frontend/ .
+
+# Build application
 RUN npm run build
 
-FROM nginx:1.27-alpine AS runtime
+# Production stage
+FROM nginx:alpine
 
-COPY deployment/docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy nginx configuration
+COPY deployment/docker/frontend/nginx.conf /etc/nginx/nginx.conf
 
+# Copy built application from builder
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost:80/health || exit 1
+
+# Expose port
 EXPOSE 80
 
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

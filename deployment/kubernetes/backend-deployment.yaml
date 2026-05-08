@@ -2,49 +2,98 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: stockpulse-backend
+  namespace: stockpulse
   labels:
-    app: stockpulse
-    component: backend
+    app: stockpulse-backend
+    version: v1
 spec:
-  replicas: 1
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   selector:
     matchLabels:
-      app: stockpulse
-      component: backend
+      app: stockpulse-backend
   template:
     metadata:
       labels:
-        app: stockpulse
-        component: backend
+        app: stockpulse-backend
+        version: v1
     spec:
+      imagePullSecrets:
+        - name: dockerhub-secret
       containers:
         - name: backend
-          # Replace with your actual Docker Hub image repository/tag.
-          image: your-dockerhub-username/stockpulse-backend:v1.0.0
-          imagePullPolicy: IfNotPresent
+          image: venkatachalav/stockpulse-backend:latest
+          imagePullPolicy: Always
           ports:
-            - containerPort: 8000
-          envFrom:
-            - configMapRef:
-                name: stockpulse-config
-            - secretRef:
-                name: stockpulse-secret
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: stockpulse-config
+                  key: ENVIRONMENT
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: stockpulse-config
+                  key: LOG_LEVEL
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stockpulse-secret
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stockpulse-secret
+                  key: JWT_SECRET
+            - name: NEWS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stockpulse-secret
+                  key: NEWS_API_KEY
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
           livenessProbe:
             httpGet:
               path: /health
-              port: 8000
-            initialDelaySeconds: 20
-            periodSeconds: 20
-          resources:
-            requests:
-              cpu: "250m"
-              memory: "256Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - stockpulse-backend
+                topologyKey: kubernetes.io/hostname

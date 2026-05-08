@@ -1,23 +1,51 @@
-FROM python:3.11-slim AS runtime
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+# Multi-stage build for optimized image size
+FROM python:3.11-slim as builder
 
 WORKDIR /app
 
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy requirements
+COPY requirements.txt .
 
-COPY api ./api
+# Create virtual environment and install dependencies
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-RUN useradd --create-home --shell /usr/sbin/nologin appuser && chown -R appuser:appuser /app
-USER appuser
+# Final stage
+FROM python:3.11-slim
 
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Copy application code
+COPY api/ ./api/
+COPY utils/ ./utils/
+COPY data/ ./data/
+
+# Set environment variables
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
 EXPOSE 8000
 
-CMD ["uvicorn", "api.app_fixed:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application
+CMD ["python", "-m", "uvicorn", "api.app_fixed:app", "--host", "0.0.0.0", "--port", "8000"]

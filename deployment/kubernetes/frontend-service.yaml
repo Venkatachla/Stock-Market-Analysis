@@ -2,16 +2,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: frontend-service
+  namespace: stockpulse
   labels:
-    app: stockpulse
-    component: frontend
+    app: stockpulse-frontend
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
-    app: stockpulse
-    component: frontend
+    app: stockpulse-frontend
   ports:
     - name: http
-      protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: http
+      protocol: TCP
+  sessionAffinity: None

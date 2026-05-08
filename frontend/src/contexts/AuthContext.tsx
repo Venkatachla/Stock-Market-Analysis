@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { setAuthToken } from '@/services/api';
-import { API_BASE } from '@/config/api';
 
 export interface User {
   email: string;
@@ -19,6 +18,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -39,59 +40,67 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Login failed');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Login failed');
+      }
+
+      const data = await response.json();
+      const authToken = data.token;
+      const userData: User = {
+        email,
+        tier: data.tier || 'free',
+        isAdmin: data.is_admin || false,
+      };
+
+      setToken(authToken);
+      setUser(userData);
+      setAuthToken(authToken);
+      
+      localStorage.setItem('auth_token', authToken);
+      localStorage.setItem('auth_user', JSON.stringify(userData));
+    } catch (error) {
+      throw error;
     }
-
-    const data = await response.json();
-    const authToken = data.token;
-    const userData: User = {
-      email,
-      tier: data.tier || 'free',
-      isAdmin: data.is_admin || false,
-    };
-
-    setToken(authToken);
-    setUser(userData);
-    setAuthToken(authToken);
-    
-    localStorage.setItem('auth_token', authToken);
-    localStorage.setItem('auth_user', JSON.stringify(userData));
   };
 
   const signup = async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE}/api/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name: email.split('@')[0] }),
-    });
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name: email.split('@')[0] }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Signup failed');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Signup failed');
+      }
+
+      const data = await response.json();
+      const authToken = data.token;
+      const userData: User = {
+        email,
+        tier: data.tier || 'free',
+        isAdmin: data.is_admin || false,
+      };
+
+      setToken(authToken);
+      setUser(userData);
+      setAuthToken(authToken);
+      
+      localStorage.setItem('auth_token', authToken);
+      localStorage.setItem('auth_user', JSON.stringify(userData));
+    } catch (error) {
+      throw error;
     }
-
-    const data = await response.json();
-    const authToken = data.token;
-    const userData: User = {
-      email,
-      tier: data.tier || 'free',
-      isAdmin: data.is_admin || false,
-    };
-
-    setToken(authToken);
-    setUser(userData);
-    setAuthToken(authToken);
-    
-    localStorage.setItem('auth_token', authToken);
-    localStorage.setItem('auth_user', JSON.stringify(userData));
   };
 
   const logout = () => {
