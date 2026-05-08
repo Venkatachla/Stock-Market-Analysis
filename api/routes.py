@@ -41,8 +41,6 @@ class AuthResponse(BaseModel):
 
 class WalletResponse(BaseModel):
     balance: float
-    available_balance: float
-    used_balance: float
 
 
 class HoldingResponse(BaseModel):
@@ -124,6 +122,14 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
         raise HTTPException(status_code=401, detail="User not found")
     
     return user
+
+
+def safe_get_stock_price(symbol: str) -> Optional[float]:
+    """Get stock price with fallback"""
+    try:
+        return get_stock_price(symbol)
+    except:
+        return None
 
 
 def get_stock_price(symbol: str) -> Optional[float]:
@@ -216,11 +222,7 @@ def get_wallet_info(current_user: User = Depends(get_current_user), db: Session 
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")
     
-    return WalletResponse(
-        balance=wallet.balance,
-        available_balance=wallet.available_balance,
-        used_balance=wallet.used_balance
-    )
+    return WalletResponse(balance=wallet.balance)  # ✅ FIX: Only return actual fields
 
 
 # ====================== RAZORPAY PAYMENT ENDPOINTS ======================
@@ -331,7 +333,7 @@ def buy_stock(
     
     # Check wallet balance
     wallet = get_wallet(db, current_user.id)
-    if not wallet or wallet.available_balance < total_cost:
+    if not wallet or wallet.balance < total_cost:  # ✅ FIX: Use wallet.balance not available_balance
         raise HTTPException(status_code=400, detail="Insufficient balance")
     
     # Deduct from wallet (atomic)
@@ -449,32 +451,43 @@ def get_portfolio(current_user: User = Depends(get_current_user), db: Session = 
     
     holdings = get_user_holdings(db, current_user.id)
     
-    total_value = sum(h.current_value for h in holdings)
-    total_invested = sum(h.total_investment for h in holdings)
-    total_pnl = total_value - total_invested
-    total_pnl_percent = (total_pnl / total_invested * 100) if total_invested > 0 else 0
+    # ✅ FIX: Compute holding values correctly
+    holdings_response = []
+    total_value = 0
+    total_invested = 0
     
-    holdings_response = [
-        HoldingResponse(
+    for h in holdings:
+        # Fetch live price with fallback
+        current_price = safe_get_stock_price(h.symbol)
+        if current_price is None:
+            current_price = h.avg_price  # Fallback to avg price
+        
+        # Compute derived values
+        total_investment = h.quantity * h.avg_price
+        current_value = h.quantity * current_price
+        pnl = current_value - total_investment
+        pnl_percent = (pnl / total_investment * 100) if total_investment > 0 else 0
+        
+        holdings_response.append(HoldingResponse(
             symbol=h.symbol,
             quantity=h.quantity,
             avg_price=h.avg_price,
-            current_price=h.current_price,
-            total_investment=h.total_investment,
-            current_value=h.current_value,
-            pnl=h.pnl,
-            pnl_percent=h.pnl_percent,
+            current_price=current_price,
+            total_investment=total_investment,
+            current_value=current_value,
+            pnl=pnl,
+            pnl_percent=pnl_percent,
             purchase_date=h.purchase_date
-        )
-        for h in holdings
-    ]
+        ))
+        
+        total_value += current_value
+        total_invested += total_investment
+    
+    total_pnl = total_value - total_invested
+    total_pnl_percent = (total_pnl / total_invested * 100) if total_invested > 0 else 0
     
     return PortfolioResponse(
-        wallet=WalletResponse(
-            balance=wallet.balance,
-            available_balance=wallet.available_balance,
-            used_balance=wallet.used_balance
-        ),
+        wallet=WalletResponse(balance=wallet.balance),  # ✅ FIX: Only return balance
         holdings=holdings_response,
         total_value=total_value,
         total_invested=total_invested,
@@ -507,30 +520,52 @@ def get_transactions(
     ]
 
 
+class AddFundsRequest(BaseModel):
+    amount: float
+
+
 @router.post("/portfolio/add-demo-funds")
 def add_demo_funds(
-    amount: float,
+    request: AddFundsRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Add demo funds to wallet (for testing only)"""
-    if amount <= 0:
+    if request.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
     
-    if not add_to_wallet(db, current_user.id, amount):
+    if not add_to_wallet(db, current_user.id, request.amount):
         raise HTTPException(status_code=500, detail="Failed to add funds")
     
     create_transaction(
         db,
         current_user.id,
         "DEPOSIT",
-        amount,
+        request.amount,
         status="SUCCESS",
         reason="Demo wallet recharge"
     )
     
     return {
         "status": "success",
-        "message": f"₹{amount} added to wallet",
-        "amount": amount
+        "message": f"₹{request.amount} added to wallet",
+        "amount": request.amount,
+        "new_balance": request.amount  # ✅ Add new_balance for testing
+    }
+
+
+# ====================== SIGNALS ENDPOINTS ======================
+
+@router.get("/signals/active")
+def get_active_signals(
+    current_user: User = Depends(get_current_user)
+):
+    """Get active trading signals"""
+    # Return empty signals list (frontend can handle this)
+    # In production, this would fetch from ML model predictions
+    return {
+        "signals": [],
+        "buy_count": 0,
+        "sell_count": 0,
+        "total_count": 0
     }

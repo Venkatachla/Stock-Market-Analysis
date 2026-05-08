@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stcok-backend
+  namespace: stcok
+  labels:
+    app: stcok-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stcok-backend
+  template:
+    metadata:
+      labels:
+        app: stcok-backend
+    spec:
+      containers:
+      - name: backend
+        image: stcok-backend:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: DATABASE_URL
+          value: "sqlite:///./db.sqlite3"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stcok-secrets
+              key: secret-key
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: stcok-config
+              key: ENVIRONMENT
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5

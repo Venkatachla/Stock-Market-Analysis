@@ -2,30 +2,23 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: stockpulse-ingress
-  labels:
-    app: stockpulse
+  namespace: stockpulse
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    kubernetes.io/ingress.class: nginx
+    # TLS is optional - remove or disable cert-manager requirement if not installed
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rate-limit: "100"
 spec:
-  ingressClassName: nginx
+  # TLS configuration - uncomment if cert-manager is installed
+  # tls:
+  #   - hosts:
+  #       - stockpulse.example.com
+  #     secretName: stockpulse-tls
   rules:
-    - host: stockpulse.local
+    - host: stockpulse.example.com
       http:
         paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: backend-service
-                port:
-                  number: 8000
-          - path: /docs
-            pathType: Prefix
-            backend:
-              service:
-                name: backend-service
-                port:
-                  number: 8000
           - path: /
             pathType: Prefix
             backend:
@@ -33,3 +26,27 @@ spec:
                 name: frontend-service
                 port:
                   number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 8000
+    # Default rule for any host
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 8000

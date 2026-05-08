@@ -2,7 +2,7 @@ name: DevSecOps Pipeline
 
 on:
   push:
-    branches: [main, develop, sonar-cleanup, sonar-coverage]
+    branches: [main, develop, sonar-cleanup, sonar-coverage, copilot/resolve-merge-conflicts]
   pull_request:
     branches: [main]
 

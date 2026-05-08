@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: stockpulse-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./db.sqlite3
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440
+      - key: FRONTEND_URL
+        value: https://stockpulse-frontend.onrender.com
+      - key: RAZORPAY_KEY_ID
+        value: ""
+      - key: RAZORPAY_KEY_SECRET
+        value: ""
+      - key: PYTHON_ENV
+        value: production
+      - key: NODE_ENV
+        value: production
+
+  - type: static
+    name: stockpulse-frontend
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - path: /
+        destination: /index.html
+        type: rewrite
+    envVars:
+      - key: VITE_API_URL
+        value: https://stockpulse-api.onrender.com
