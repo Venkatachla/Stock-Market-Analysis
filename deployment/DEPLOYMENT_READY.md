@@ -11,7 +11,7 @@
 
 ### Required Secrets (3)
 
-You already have the Docker token: `dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw`
+You need to use your personal Docker Hub access token (not your password)
 
 1. **Go to GitHub Repository Settings**
    ```
@@ -25,7 +25,7 @@ You already have the Docker token: `dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw`
 
 3. **Add DOCKER_PASSWORD**
    - Name: `DOCKER_PASSWORD`
-   - Value: `dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw`
+   - Value: `<your-docker-personal-access-token>`
    - Click: Save
 
 4. **Add KUBE_CONFIG_DATA** (Base64 encoded kubeconfig)
@@ -128,7 +128,7 @@ kubectl create namespace stockpulse
 kubectl create secret docker-registry dockerhub-secret \
   --docker-server=docker.io \
   --docker-username=venkatachalav \
-  --docker-password=dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw \
+  --docker-password=<your-docker-personal-access-token> \
   -n stockpulse
 
 # Verify

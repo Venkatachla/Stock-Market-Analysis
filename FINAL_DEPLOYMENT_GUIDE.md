@@ -374,7 +374,7 @@ Common issues:
      Fix: Add DOCKER_USERNAME, DOCKER_PASSWORD, KUBE_CONFIG_DATA
   
   2. Docker Hub credentials incorrect
-     Fix: Verify dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw
+     Fix: Verify your Docker personal access token in GitHub Secrets
   
   3. Kubeconfig base64 encoded incorrectly
      Fix: Encode without newlines: base64 -w 0 ~/.kube/config
