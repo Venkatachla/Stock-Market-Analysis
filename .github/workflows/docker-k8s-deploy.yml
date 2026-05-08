@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - devops/docker-k8s-cicd
+      - copilot/resolve-merge-conflicts-git-action
     paths:
       - 'api/**'
       - 'frontend/**'
@@ -16,6 +17,7 @@ on:
     branches:
       - main
       - devops/docker-k8s-cicd
+      - copilot/resolve-merge-conflicts-git-action
 
 env:
   REGISTRY: docker.io
