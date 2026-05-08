@@ -21,6 +21,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+const extractErrorMessage = async (response: Response, fallback: string): Promise<string> => {
+  const body = await response.text();
+  if (!body) return fallback;
+
+  try {
+    const parsed = JSON.parse(body) as { detail?: string; message?: string };
+    return parsed.detail || parsed.message || fallback;
+  } catch {
+    return body;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -47,8 +59,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Login failed');
+      throw new Error(await extractErrorMessage(response, 'Login failed'));
     }
 
     const data = await response.json();
@@ -75,8 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Signup failed');
+      throw new Error(await extractErrorMessage(response, 'Signup failed'));
     }
 
     const data = await response.json();
