@@ -219,34 +219,61 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build backend image for push
-        run: |
-          docker build -t venkatachalav/stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
+      - name: Extract metadata for backend
+        id: backend_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
 
-      - name: Build frontend image for push
-        run: |
-          docker build -t venkatachalav/stockpulse-frontend:latest -f deployment/docker/frontend/Dockerfile .
+      - name: Extract metadata for frontend
+        id: frontend_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
 
-      - name: Verify Docker Images
-        run: docker images
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./deployment/docker/backend/Dockerfile
+          push: true
+          tags: ${{ steps.backend_meta.outputs.tags }}
+          labels: ${{ steps.backend_meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:buildcache,mode=max
 
-      - name: Push backend image
-        run: |
-          docker push venkatachalav/stockpulse-backend:latest
-
-      - name: Push frontend image
-        run: |
-          docker push venkatachalav/stockpulse-frontend:latest
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./deployment/docker/frontend/Dockerfile
+          push: true
+          tags: ${{ steps.frontend_meta.outputs.tags }}
+          labels: ${{ steps.frontend_meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:buildcache,mode=max
 
       - name: Log backend image tags
         run: |
           echo "✅ Backend image pushed successfully"
-          echo "Tags: venkatachalav/stockpulse-backend:latest"
+          echo "Tags: ${{ steps.backend_meta.outputs.tags }}"
 
       - name: Log frontend image tags
         run: |
           echo "✅ Frontend image pushed successfully"
-          echo "Tags: venkatachalav/stockpulse-frontend:latest"
+          echo "Tags: ${{ steps.frontend_meta.outputs.tags }}"
 
   # ═══════════════════════════════════════════════════════════
   # JOB 5: KUBERNETES DEPLOY

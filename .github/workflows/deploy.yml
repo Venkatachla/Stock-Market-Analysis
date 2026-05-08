@@ -184,9 +184,9 @@ jobs:
     name: SonarCloud Analysis
     needs: test-and-build
     runs-on: ubuntu-latest
-    # Run on pushes to main/develop and on PRs targeting main
+    # Run on pushes to main/develop/sonar-coverage and on PRs targeting main
     if: >
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'))
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/sonar-coverage'))
       || github.event_name == 'pull_request'
 
     steps:
@@ -246,6 +246,9 @@ jobs:
       # --- SonarCloud Analysis ---
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602  # v6
+        with:
+          args: >
+            -Dsonar.branch.name=${{ github.ref_name }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
