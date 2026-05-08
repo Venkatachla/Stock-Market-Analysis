@@ -83,11 +83,11 @@ After creating the PR, GitHub will show:
 For each conflicted file, GitHub will show:
 
 ```
-<<<<<<< devops/docker-k8s-cicd
+[CONFLICT START] devops/docker-k8s-cicd
 (Your security fixes)
-=======
+[CONFLICT SEPARATOR]
 (Main branch content)
->>>>>>> main
+[CONFLICT END] main
 ```
 
 **For deployment files** (Dockerfile, kubernetes YAML, etc.):

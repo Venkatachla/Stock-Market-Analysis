@@ -12,9 +12,13 @@
 import { describe, it, expect } from "vitest";
 import { reducer } from "@/hooks/use-toast";
 
+type ReducerAction = Parameters<typeof reducer>[1];
+type AddToastAction = Extract<ReducerAction, { type: "ADD_TOAST" }>;
+type ReducerToast = AddToastAction["toast"];
+
 // Helper: create a minimal toast-like object
-function makeToast(id: string, title = "Test") {
-  return { id, title, open: true, onOpenChange: () => {} } as any;
+function makeToast(id: string, title = "Test"): ReducerToast {
+  return { id, title, open: true, onOpenChange: () => {} };
 }
 
 describe("toast reducer", () => {
