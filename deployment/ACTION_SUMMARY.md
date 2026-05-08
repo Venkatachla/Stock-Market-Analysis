@@ -101,7 +101,7 @@ Secret 1: DOCKER_USERNAME
 Value: venkatachalav
 
 Secret 2: DOCKER_PASSWORD  
-Value: dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw
+Value: <your-docker-personal-access-token>
 
 Secret 3: KUBE_CONFIG_DATA
 Value: <base64-encoded-kubeconfig>
@@ -126,7 +126,7 @@ kubectl create namespace stockpulse
 kubectl create secret docker-registry dockerhub-secret \
   --docker-server=docker.io \
   --docker-username=venkatachalav \
-  --docker-password=dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw \
+  --docker-password=<your-docker-personal-access-token> \
   -n stockpulse
 
 # Verify
@@ -338,7 +338,7 @@ deployment/
 | Problem | Solution |
 |---------|----------|
 | "GitHub Secrets not found" | Add DOCKER_USERNAME, DOCKER_PASSWORD, KUBE_CONFIG_DATA to GitHub Settings |
-| "Docker image not pushed" | Verify DOCKER_PASSWORD is correct (dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw) |
+| "Docker image not pushed" | Verify DOCKER_PASSWORD is correct in GitHub Secrets |
 | "Kubeconfig error" | Make sure it's base64 encoded (single line, no newlines) |
 | "Pods not starting" | Check: `kubectl describe pod <name> -n stockpulse` |
 | "API not responding" | Port forward and test: `kubectl port-forward ... svc/backend-service 8000:8000` |
