@@ -194,7 +194,7 @@ Frontend:
 **GitHub Secrets Required (3)**
 ```
 1. DOCKER_USERNAME = venkatachalav
-2. DOCKER_PASSWORD = dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw
+2. DOCKER_PASSWORD = <your-docker-personal-access-token>
 3. KUBE_CONFIG_DATA = <base64-encoded-kubeconfig>
 ```
 
@@ -243,7 +243,7 @@ Status: ✅ READY
 ## 🚀 Deployment Readiness Checklist
 
 ### Pre-Deployment (Required)
-- [ ] Docker Hub token obtained: `dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw`
+- [ ] Docker Hub token obtained: `<your-docker-personal-access-token>`
 - [ ] GitHub Secret DOCKER_USERNAME added
 - [ ] GitHub Secret DOCKER_PASSWORD added
 - [ ] GitHub Secret KUBE_CONFIG_DATA added (base64 encoded)
@@ -487,7 +487,7 @@ Location: Settings → Secrets and variables → Actions
 ```
 Error: Docker Hub authentication
 Solution: Verify DOCKER_PASSWORD is correct
-Current token: dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw
+Current token: <your-docker-personal-access-token>
 ```
 
 ### If Kubernetes Deployment Fails

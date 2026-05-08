@@ -306,7 +306,7 @@ Replicas: 2 (zero-downtime updates)
 
 Before pushing to main:
 
-- [ ] Docker Hub token copied: `dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw`
+- [ ] Docker Hub token copied: `<your-docker-personal-access-token>`
 - [ ] DOCKER_USERNAME added to GitHub Secrets
 - [ ] DOCKER_PASSWORD added to GitHub Secrets
 - [ ] KUBE_CONFIG_DATA added to GitHub Secrets
@@ -360,11 +360,11 @@ kubectl get pods -n stockpulse -o jsonpath='{.items[*].status.containerStatuses[
 **Solution:**
 ```bash
 # Verify token is valid
-echo "dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw" | base64
+echo "<your-docker-personal-access-token>" | base64
 # Then check GitHub Secrets
 
 # Test locally
-docker login -u venkatachalav -p dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw
+docker login -u venkatachalav -p <your-docker-personal-access-token>
 docker pull venkatachalav/stockpulse-backend:latest
 ```
 

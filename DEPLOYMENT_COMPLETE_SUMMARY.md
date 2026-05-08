@@ -189,7 +189,7 @@ All 12 critical tasks have been **completed and verified**:
 ### GitHub Secrets ✅
 ```
 [✓] DOCKER_USERNAME = venkatachalav
-[✓] DOCKER_PASSWORD = dckr_pat_jEFUwHDp_2b0mADHvg7DZFrtjDw
+[✓] DOCKER_PASSWORD = <your-docker-personal-access-token>
 [✓] KUBE_CONFIG_DATA = <base64-encoded-kubeconfig>
 
 [✓] Security
