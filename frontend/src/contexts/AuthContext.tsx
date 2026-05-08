@@ -34,7 +34,7 @@ const extractErrorMessage = async (response: Response, fallback: string): Promis
     const parsed = JSON.parse(body) as ErrorResponse;
     return parsed.detail || parsed.message || fallback;
   } catch {
-    return body;
+    return fallback;
   }
 };
 
