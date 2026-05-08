@@ -26,13 +26,27 @@ interface ErrorResponse {
   message?: string;
 }
 
+const sanitizeErrorMessage = (message: string, fallback: string): string => {
+  const normalized = message.replace(/\s+/g, ' ').trim();
+  if (!normalized) return fallback;
+
+  const lowered = normalized.toLowerCase();
+  const sensitiveMarkers = ['traceback', 'exception', 'stack', '/home/', 'line '];
+  if (sensitiveMarkers.some((marker) => lowered.includes(marker))) {
+    return fallback;
+  }
+
+  return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
+};
+
 const extractErrorMessage = async (response: Response, fallback: string): Promise<string> => {
   const body = await response.text();
   if (!body) return fallback;
 
   try {
     const parsed = JSON.parse(body) as ErrorResponse;
-    return parsed.detail || parsed.message || fallback;
+    const candidate = parsed.detail || parsed.message;
+    return candidate ? sanitizeErrorMessage(candidate, fallback) : fallback;
   } catch {
     return fallback;
   }
