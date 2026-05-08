@@ -40,67 +40,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+    const response = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Login failed');
-      }
-
-      const data = await response.json();
-      const authToken = data.token;
-      const userData: User = {
-        email,
-        tier: data.tier || 'free',
-        isAdmin: data.is_admin || false,
-      };
-
-      setToken(authToken);
-      setUser(userData);
-      setAuthToken(authToken);
-      
-      localStorage.setItem('auth_token', authToken);
-      localStorage.setItem('auth_user', JSON.stringify(userData));
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Login failed');
     }
+
+    const data = await response.json();
+    const authToken = data.token;
+    const userData: User = {
+      email,
+      tier: data.tier || 'free',
+      isAdmin: data.is_admin || false,
+    };
+
+    setToken(authToken);
+    setUser(userData);
+    setAuthToken(authToken);
+    
+    localStorage.setItem('auth_token', authToken);
+    localStorage.setItem('auth_user', JSON.stringify(userData));
   };
 
   const signup = async (email: string, password: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name: email.split('@')[0] }),
-      });
+    const response = await fetch(`${API_BASE}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name: email.split('@')[0] }),
+    });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Signup failed');
-      }
-
-      const data = await response.json();
-      const authToken = data.token;
-      const userData: User = {
-        email,
-        tier: data.tier || 'free',
-        isAdmin: data.is_admin || false,
-      };
-
-      setToken(authToken);
-      setUser(userData);
-      setAuthToken(authToken);
-      
-      localStorage.setItem('auth_token', authToken);
-      localStorage.setItem('auth_user', JSON.stringify(userData));
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Signup failed');
     }
+
+    const data = await response.json();
+    const authToken = data.token;
+    const userData: User = {
+      email,
+      tier: data.tier || 'free',
+      isAdmin: data.is_admin || false,
+    };
+
+    setToken(authToken);
+    setUser(userData);
+    setAuthToken(authToken);
+    
+    localStorage.setItem('auth_token', authToken);
+    localStorage.setItem('auth_user', JSON.stringify(userData));
   };
 
   const logout = () => {

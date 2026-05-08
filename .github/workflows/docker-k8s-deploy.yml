@@ -35,6 +35,7 @@ jobs:
     
     steps:
       - name: Verify GitHub Secrets Configuration
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd')
         run: |
           echo "Checking GitHub Secrets..."
           if [ -z "${{ secrets.DOCKER_USERNAME }}" ]; then
@@ -549,12 +550,37 @@ jobs:
           echo "  Kubernetes Deploy: ${{ needs.kubernetes-deploy.result }}"
           echo "  Deployment Verification: ${{ needs.deployment-verification.result }}"
           echo ""
-          
-          if [ "${{ needs.build-test.result }}" == "success" ] && \
-             [ "${{ needs.docker-build.result }}" == "success" ] && \
-             [ "${{ needs.docker-push.result }}" == "success" ] && \
-             [ "${{ needs.kubernetes-deploy.result }}" == "success" ] && \
-             [ "${{ needs.deployment-verification.result }}" == "success" ]; then
+
+          REQUIRE_DEPLOYMENT="false"
+          if [ "${{ github.event_name }}" == "push" ] && \
+             { [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.ref }}" == "refs/heads/devops/docker-k8s-cicd" ]; }; then
+            REQUIRE_DEPLOYMENT="true"
+          fi
+
+          if [ "${{ needs.build-test.result }}" != "success" ]; then
+            echo "❌ PIPELINE FAILED"
+            echo ""
+            echo "Failed stages:"
+            echo "  ❌ Build & Test failed"
+            exit 1
+          fi
+
+          if [ "$REQUIRE_DEPLOYMENT" == "true" ] && \
+             { [ "${{ needs.docker-build.result }}" != "success" ] || \
+               [ "${{ needs.docker-push.result }}" != "success" ] || \
+               [ "${{ needs.kubernetes-deploy.result }}" != "success" ] || \
+               [ "${{ needs.deployment-verification.result }}" != "success" ]; }; then
+            echo "❌ PIPELINE FAILED"
+            echo ""
+            echo "Failed stages:"
+            [ "${{ needs.docker-build.result }}" != "success" ] && echo "  ❌ Docker Build failed"
+            [ "${{ needs.docker-push.result }}" != "success" ] && echo "  ❌ Docker Push failed"
+            [ "${{ needs.kubernetes-deploy.result }}" != "success" ] && echo "  ❌ Kubernetes Deploy failed"
+            [ "${{ needs.deployment-verification.result }}" != "success" ] && echo "  ❌ Deployment Verification failed"
+            exit 1
+          fi
+
+          if [ "$REQUIRE_DEPLOYMENT" == "true" ]; then
             echo "✅ PIPELINE COMPLETED SUCCESSFULLY!"
             echo ""
             echo "All stages completed:"
@@ -567,15 +593,11 @@ jobs:
             echo ""
             echo "Production is now live!"
           else
-            echo "❌ PIPELINE FAILED"
+            echo "✅ PIPELINE COMPLETED SUCCESSFULLY!"
             echo ""
-            echo "Failed stages:"
-            [ "${{ needs.build-test.result }}" != "success" ] && echo "  ❌ Build & Test failed"
-            [ "${{ needs.docker-build.result }}" != "success" ] && echo "  ❌ Docker Build failed"
-            [ "${{ needs.docker-push.result }}" != "success" ] && echo "  ❌ Docker Push failed"
-            [ "${{ needs.kubernetes-deploy.result }}" != "success" ] && echo "  ❌ Kubernetes Deploy failed"
-            [ "${{ needs.deployment-verification.result }}" != "success" ] && echo "  ❌ Deployment Verification failed"
-            exit 1
+            echo "Non-deployment run completed:"
+            echo "  ✅ Build & Test passed"
+            echo "  ℹ️ Deployment stages were not required for this event/branch"
           fi
     
 
