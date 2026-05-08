@@ -3,8 +3,7 @@ SQLAlchemy ORM models for the trading system.
 """
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text, ForeignKey, UniqueConstraint, Index
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./db.sqlite3")
