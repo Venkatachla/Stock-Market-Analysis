@@ -90,13 +90,22 @@ jobs:
           cat backend.log
           exit 1
 
+      - name: Show Repository Structure
+        working-directory: .
+        run: |
+          pwd
+          ls -la
+          find . -name "test*.py"
+
       - name: Run backend unit tests
+        working-directory: .
         run: |
           python -m pytest tests -q
 
       - name: Run backend integration tests
+        working-directory: .
         run: |
-          python -m pytest test_endpoints.py test_trading_flow.py -q
+          python -m pytest tests/test_endpoints.py tests/test_trading_flow.py -q
 
       - name: Print backend logs on failure
         if: failure()
