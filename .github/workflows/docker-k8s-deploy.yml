@@ -298,7 +298,7 @@ jobs:
     name: Kubernetes Deploy
     runs-on: ubuntu-latest
     needs: docker-push
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd') && secrets.KUBE_CONFIG_DATA != '' && vars.ENABLE_KUBERNETES_DEPLOY == 'true'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd') && secrets.KUBE_CONFIG_DATA && vars.ENABLE_KUBERNETES_DEPLOY == 'true'
     permissions:
       contents: read
     
@@ -329,7 +329,8 @@ jobs:
           echo "Detected cluster server: $CLUSTER_SERVER"
           if echo "$CLUSTER_SERVER" | grep -q "kubernetes.docker.internal"; then
             echo "❌ Invalid kubeconfig for GitHub-hosted runners: kubernetes.docker.internal is local-only."
-            echo "Use a cloud Kubernetes kubeconfig or keep Kubernetes deployment disabled."
+            echo "Set ENABLE_KUBERNETES_DEPLOY=false in repository variables to skip Kubernetes for now,"
+            echo "or replace KUBE_CONFIG_DATA with a kubeconfig from a cloud Kubernetes cluster."
             exit 1
           fi
           kubectl cluster-info
@@ -401,7 +402,7 @@ jobs:
     name: Deployment Verification
     runs-on: ubuntu-latest
     needs: kubernetes-deploy
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd') && secrets.KUBE_CONFIG_DATA != '' && vars.ENABLE_KUBERNETES_DEPLOY == 'true' && needs.kubernetes-deploy.result == 'success'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd') && secrets.KUBE_CONFIG_DATA && vars.ENABLE_KUBERNETES_DEPLOY == 'true' && needs.kubernetes-deploy.result == 'success'
     permissions:
       contents: read
     
@@ -596,7 +597,7 @@ jobs:
           REQUIRE_K8S_DEPLOYMENT="false"
           if [ "${{ github.event_name }}" == "push" ] && \
              { [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.ref }}" == "refs/heads/devops/docker-k8s-cicd" ]; } && \
-             [ -n "${{ secrets.KUBE_CONFIG_DATA }}" ] && \
+             [ "${{ secrets.KUBE_CONFIG_DATA && 'true' || 'false' }}" == "true" ] && \
              [ "${{ vars.ENABLE_KUBERNETES_DEPLOY }}" == "true" ]; then
             REQUIRE_K8S_DEPLOYMENT="true"
           fi
