@@ -329,7 +329,7 @@ jobs:
           echo "Detected cluster server: $CLUSTER_SERVER"
           if echo "$CLUSTER_SERVER" | grep -qE "(kubernetes\\.docker\\.internal|localhost|127\\.0\\.0\\.1|host\\.docker\\.internal)"; then
             echo "❌ Invalid kubeconfig for GitHub-hosted runners: kubeconfig points to a local-only Kubernetes endpoint."
-            echo "Remove ENABLE_KUBERNETES_DEPLOY or set it to false in Settings > Secrets and variables > Actions > Variables to skip Kubernetes for now,"
+            echo "Set repository variable ENABLE_KUBERNETES_DEPLOY=false in Settings > Secrets and variables > Actions > Variables to skip Kubernetes for now,"
             echo "or replace KUBE_CONFIG_DATA with a kubeconfig from a cloud Kubernetes cluster."
             exit 1
           fi
