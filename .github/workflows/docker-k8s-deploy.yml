@@ -15,32 +15,18 @@ on:
       - 'deployment/**'
       - '.github/workflows/docker-k8s-deploy.yml'
       - 'sonar-project.properties'
-  pull_request:
-    branches:
-      - main
-      - devops/docker-k8s-cicd
-      - copilot/resolve-merge-conflicts-git-action
-      - fix-docker-k8s-pipeline
 
 env:
   REGISTRY: docker.io
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
-  ENABLE_KUBERNETES_DEPLOY: ${{ vars.ENABLE_KUBERNETES_DEPLOY }}
   BACKEND_IMAGE: venkatachalav/stockpulse-backend
   FRONTEND_IMAGE: venkatachalav/stockpulse-frontend
 
 jobs:
-  # ═══════════════════════════════════════════════════════════
-  # JOB 1: BUILD & TEST
-  # ═══════════════════════════════════════════════════════════
   build-test:
     name: Build & Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,7 +59,6 @@ jobs:
         run: |
           cd frontend
           npm ci
-          cd ..
 
       - name: Start FastAPI Backend
         run: |
@@ -94,33 +79,15 @@ jobs:
           cat backend.log
           exit 1
 
-      - name: Show Repository Structure
-        run: |
-          pwd
-          ls -la
-          found=0
-          for dir in tests api/tests backend/tests; do
-            if [ -d "$dir" ]; then
-              found=1
-              find "$dir" -name "test*.py"
-            fi
-          done
-          if [ "$found" -eq 0 ]; then
-            echo "No expected test directories found (tests, api/tests, backend/tests)"
-          fi
-
       - name: Run backend unit tests
-        run: |
-          python -m pytest tests -q
+        run: python -m pytest tests -q
 
       - name: Run backend integration tests
-        run: |
-          python -m pytest tests/test_endpoints.py tests/test_trading_flow.py -q
+        run: python -m pytest tests/test_endpoints.py tests/test_trading_flow.py -q
 
       - name: Print backend logs on failure
         if: failure()
-        run: |
-          cat backend.log || true
+        run: cat backend.log || true
 
       - name: Stop FastAPI Backend
         if: always()
@@ -133,25 +100,24 @@ jobs:
         run: |
           cd frontend
           npm run lint --if-present
-          cd ..
+
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm run test -- --run
 
       - name: Build frontend
         run: |
           cd frontend
           npm run build
-          cd ..
 
-  # ═══════════════════════════════════════════════════════════
-  # JOB 2: SONARCLOUD ANALYSIS
-  # ═══════════════════════════════════════════════════════════
-  sonarcloud-analysis:
+  sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
     needs: build-test
-    if: github.event_name == 'push'
+    if: ${{ github.event_name == 'push' }}
     permissions:
       contents: read
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -172,7 +138,6 @@ jobs:
         run: |
           pytest tests/ \
             --cov=api \
-            --cov=frontend/src \
             --cov-report=xml \
             --cov-report=term
 
@@ -199,19 +164,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  # ═══════════════════════════════════════════════════════════
-  # JOB 3: DOCKER BUILD
-  # ═══════════════════════════════════════════════════════════
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [build-test, sonarcloud-analysis]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
-    
+    needs: [build-test, sonarcloud]
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline') }}
     permissions:
       contents: read
       packages: write
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -220,241 +180,28 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build backend image
-        run: |
-          docker build -t venkatachalav/stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
+        run: docker build -t venkatachalav/stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
 
       - name: Build frontend image
-        run: |
-          docker build -t venkatachalav/stockpulse-frontend:latest -f deployment/docker/frontend/Dockerfile .
+        run: docker build -t venkatachalav/stockpulse-frontend:latest -f deployment/docker/frontend/Dockerfile .
 
       - name: Verify Docker Images
         run: docker images
 
-      - name: Verify backend image built
-        run: |
-          echo "✅ Backend Docker image built successfully"
-          echo "Image: venkatachalav/stockpulse-backend:latest"
-
-      - name: Verify frontend image built
-        run: |
-          echo "✅ Frontend Docker image built successfully"
-          echo "Image: venkatachalav/stockpulse-frontend:latest"
-
-  # ═══════════════════════════════════════════════════════════
-  # JOB 4: DOCKER PUSH
-  # ═══════════════════════════════════════════════════════════
   docker-push:
     name: Docker Push
     runs-on: ubuntu-latest
     needs: docker-build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
-    
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
-
-      - name: Install backend dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov "httpx<0.25"
-
-      - name: Setup backend test environment
-        run: |
-          echo "DATABASE_URL=sqlite:///./db.sqlite3" >> $GITHUB_ENV
-          echo "PYTHONUNBUFFERED=1" >> $GITHUB_ENV
-
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci
-          cd ..
-
-      - name: Start FastAPI Backend
-        run: |
-          nohup uvicorn api.app_fixed:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
-          echo $! > backend.pid
-          sleep 15
-
-      - name: Verify Backend Running
-        run: |
-          for i in {1..20}; do
-            if curl -sf http://localhost:8000/health; then
-              echo "✅ Backend is running"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "❌ Backend failed health check"
-          cat backend.log
-          exit 1
-
-      - name: Show Repository Structure
-        run: |
-          pwd
-          ls -la
-          found=0
-          for dir in tests api/tests backend/tests; do
-            if [ -d "$dir" ]; then
-              found=1
-              find "$dir" -name "test*.py"
-            fi
-          done
-          if [ "$found" -eq 0 ]; then
-            echo "No expected test directories found (tests, api/tests, backend/tests)"
-          fi
-
-      - name: Run backend unit tests
-        run: |
-          python -m pytest tests -q
-
-      - name: Run backend integration tests
-        run: |
-          python -m pytest tests/test_endpoints.py tests/test_trading_flow.py -q
-
-      - name: Print backend logs on failure
-        if: failure()
-        run: |
-          cat backend.log || true
-
-      - name: Stop FastAPI Backend
-        if: always()
-        run: |
-          if [ -f backend.pid ]; then
-            kill "$(cat backend.pid)" 2>/dev/null || true
-          fi
-
-      - name: Run frontend linting
-        run: |
-          cd frontend
-          npm run lint --if-present
-          cd ..
-
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm run build
-          cd ..
-
-  # ═══════════════════════════════════════════════════════════
-  # JOB 2: SONARCLOUD ANALYSIS
-  # ═══════════════════════════════════════════════════════════
-  sonarcloud-analysis:
-    name: SonarCloud Analysis
-    runs-on: ubuntu-latest
-    needs: build-test
-    if: github.event_name == 'push'
-    permissions:
-      contents: read
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install backend dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov "httpx<0.25"
-
-      - name: Generate backend coverage
-        run: |
-          pytest tests/ \
-            --cov=api \
-            --cov=frontend/src \
-            --cov-report=xml \
-            --cov-report=term
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
-
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Run frontend coverage
-        run: |
-          cd frontend
-          npx vitest run --coverage --coverage.provider=v8 --coverage.reporter=lcov --coverage.reportsDirectory=coverage
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  # ═══════════════════════════════════════════════════════════
-  # JOB 3: DOCKER BUILD
-  # ═══════════════════════════════════════════════════════════
-  docker-build:
-    name: Docker Build
-    runs-on: ubuntu-latest
-    needs: [build-test, sonarcloud-analysis]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
-    
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline') }}
     permissions:
       contents: read
       packages: write
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build backend image
-        run: |
-          docker build -t venkatachalav/stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
-
-      - name: Build frontend image
-        run: |
-          docker build -t venkatachalav/stockpulse-frontend:latest -f deployment/docker/frontend/Dockerfile .
-
-      - name: Verify Docker Images
-        run: docker images
-
-      - name: Verify backend image built
-        run: |
-          echo "✅ Backend Docker image built successfully"
-          echo "Image: venkatachalav/stockpulse-backend:latest"
-
-      - name: Verify frontend image built
-        run: |
-          echo "✅ Frontend Docker image built successfully"
-          echo "Image: venkatachalav/stockpulse-frontend:latest"
-
-  # ═══════════════════════════════════════════════════════════
-  # JOB 4: DOCKER PUSH
-  # ═══════════════════════════════════════════════════════════
-  docker-push:
-    name: Docker Push
-    runs-on: ubuntu-latest
-    needs: docker-build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
-    
-    permissions:
-      contents: read
-      packages: write
-    
     steps:
       - name: Validate Docker Secrets
         run: |
           if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
-            echo "⚠️ Docker secrets not configured; push will fail."
-          else
-            echo "✅ Docker secrets configured"
+            echo "::error::DOCKER_USERNAME and DOCKER_PASSWORD secrets are required."
+            exit 1
           fi
 
       - name: Checkout code
@@ -469,54 +216,50 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Extract metadata for backend
-        id: backend_meta
-        uses: docker/metadata-action@v5
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          context: .
+          file: deployment/docker/backend/Dockerfile
+          push: true
           tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest
 
-      - name: Extract metadata for frontend
-        id: frontend_meta
-        uses: docker/metadata-action@v5
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
+          context: .
+          file: deployment/docker/frontend/Dockerfile
+          push: true
           tags: |
-            type=ref,event=branch
-            type=sh  kubernetes-deploy:
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest
+
+  kubernetes-deploy:
     name: Kubernetes Deploy
     runs-on:
       - self-hosted
       - Windows
     needs: docker-push
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline') }}
     permissions:
       contents: read
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Validate Kubernetes deployment toggle
-        shell: bash
+        shell: powershell
         run: |
-          if [ "${{ vars.ENABLE_KUBERNETES_DEPLOY }}" != "true" ] && [ "${{ vars.ENABLE_KUBERNETES_DEPLOY }}" != "" ]; then
-            echo "::error::ENABLE_KUBERNETES_DEPLOY is not true."
-            exit 1
-          fi
+          if ("${{ vars.ENABLE_KUBERNETES_DEPLOY }}" -ne "true") {
+            throw "ENABLE_KUBERNETES_DEPLOY must be set to true."
+          }
 
       - name: Validate kubeconfig secret
-        shell: bash
+        shell: powershell
         run: |
-          if [ -z "${{ secrets.KUBE_CONFIG_DATA }}" ]; then
-            echo "::error::KUBE_CONFIG_DATA secret is required for Kubernetes deployment."
-            exit 1
-          fi
+          if ([string]::IsNullOrWhiteSpace("${{ secrets.KUBE_CONFIG_DATA }}")) {
+            throw "KUBE_CONFIG_DATA secret is required for Kubernetes deployment."
+          }
 
       - name: Setup kubeconfig
         shell: powershell
@@ -525,112 +268,55 @@ jobs:
           [System.Text.Encoding]::UTF8.GetString(
             [System.Convert]::FromBase64String("${{ secrets.KUBE_CONFIG_DATA }}")
           ) | Out-File "$HOME\.kube\config"
-          echo "Kubernetes deployment enabled"
 
-      - name: Verify Cluster
+      - name: Verify cluster
+        shell: powershell
         run: |
           kubectl cluster-info
           kubectl get nodes
-          kubectl get pods -A
 
       - name: Create namespace
+        shell: powershell
         run: |
           kubectl create namespace stockpulse --dry-run=client -o yaml | kubectl apply -f -
-          echo "✅ Namespace stockpulse ready"
 
       - name: Create Docker registry secret
         shell: powershell
         run: |
           kubectl create secret docker-registry dockerhub-secret `
             --docker-server=docker.io `
-            --docker-username="$env:DOCKER_USERNAME" `
-            --docker-password="$env:DOCKER_PASSWORD" `
+            --docker-username="${{ secrets.DOCKER_USERNAME }}" `
+            --docker-password="${{ secrets.DOCKER_PASSWORD }}" `
             --docker-email="admin@stockpulse.io" `
             -n stockpulse `
             --dry-run=client -o yaml | kubectl apply -f -
-          echo "✅ Docker registry secret configured"
 
       - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f deployment/kubernetes/
-          echo "✅ Kubernetes manifests applied"
-
-      - name: Restart backend deployment
-        run: |
-          echo "Restarting backend deployment..."
-          kubectl rollout restart deployment/stockpulse-backend -n stockpulse
-          echo "Waiting for backend rollout..."
-          kubectl rollout status deployment/stockpulse-backend -n stockpulse --timeout=5m
-          echo "✅ Backend deployment restarted"
-
-      - name: Restart frontend deployment
-        run: |
-          echo "Restarting frontend deployment..."
-          kubectl rollout restart deployment/stockpulse-frontend -n stockpulse
-          echo "Waiting for frontend rollout..."
-          kubectl rollout status deployment/stockpulse-frontend -n stockpulse --timeout=5m
-          echo "✅ Frontend deployment restarted"cker-username="$env:DOCKER_USERNAME" `
-            --docker-password="$env:DOCKER_PASSWORD" `
-            --docker-email="admin@stockpulse.io" `
-            -n stockpulse `
-            --dry-run=client -o yaml | kubectl apply -f -
-      - name: Validate Kubernetes manifests
-        shell: bash
-        run: |
-          required_files=(
-            deployment/kubernetes/backend-deployment.yaml
-            deployment/kubernetes/backend-service.yaml
-            deployment/kubernetes/frontend-deployment.yaml
-            deployment/kubernetes/frontend-service.yaml
-            deployment/kubernetes/ingress.yaml
-            deployment/kubernetes/configmap.yaml
-            deployment/kubernetes/secret.yaml
-          )
-          for file in "${required_files[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "::error::Missing manifest: $file"
-              exit 1
-            fi
-          done
-          echo "✅ All required Kubernetes manifests found"
-
-      - name: Deploy to Kubernetes
-        shell: bash
+        shell: powershell
         run: |
           kubectl apply -f deployment/kubernetes/ -n stockpulse
-          echo "✅ Kubernetes manifests applied"
 
       - name: Restart backend deployment
-        shell: bash
+        shell: powershell
         run: |
-          echo "Restarting backend deployment..."
           kubectl rollout restart deployment/stockpulse-backend -n stockpulse
-          echo "Waiting for backend rollout..."
           kubectl rollout status deployment/stockpulse-backend -n stockpulse --timeout=5m
-          echo "✅ Backend deployment restarted"
 
       - name: Restart frontend deployment
-        shell: bash
+        shell: powershell
         run: |
-          echo "Restarting frontend deployment..."
           kubectl rollout restart deployment/stockpulse-frontend -n stockpulse
-          echo "Waiting for frontend rollout..."
           kubectl rollout status deployment/stockpulse-frontend -n stockpulse --timeout=5m
-          echo "✅ Frontend deployment restarted"
 
-  # ═══════════════════════════════════════════════════════════
-  # JOB 6: DEPLOYMENT VERIFICATION
-  # ═══════════════════════════════════════════════════════════
   deployment-verification:
     name: Deployment Verification
     runs-on:
       - self-hosted
       - Windows
     needs: kubernetes-deploy
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline') }}
     permissions:
       contents: read
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -643,158 +329,17 @@ jobs:
             [System.Convert]::FromBase64String("${{ secrets.KUBE_CONFIG_DATA }}")
           ) | Out-File "$HOME\.kube\config"
 
-      - name: Verify Deployment
-        shell: bash
+      - name: Verify deployment resources
+        shell: powershell
         run: |
           kubectl get deployments -n stockpulse
           kubectl get pods -n stockpulse
           kubectl get services -n stockpulse
 
-      - name: Wait for pods to be ready
-        shell: bash
-        run: |
-          echo "Waiting for backend pods to be ready..."
-          kubectl wait --for=condition=ready pod -l app=stockpulse-backend -n stockpulse --timeout=300s
-          echo "Waiting for frontend pods to be ready..."
-          kubectl wait --for=condition=ready pod -l app=stockpulse-frontend -n stockpulse --timeout=300s
-              echo "✅ Backend API is healthy!"
-              kill $PF_PID 2>/dev/null || true
-              exit 0
-            fi
-            sleep 2
-          done
-          
-          echo "⚠️ Backend health check timed out"
-          kill $PF_PID 2>/dev/null || true
-        continue-on-error: true
+      - name: Wait for backend pods ready
+        shell: powershell
+        run: kubectl wait --for=condition=ready pod -l app=stockpulse-backend -n stockpulse --timeout=300s
 
-      - name: Health Check - Frontend
-        if: always()
-        run: |
-          echo "Attempting frontend health check..."
-          timeout 60s kubectl port-forward -n stockpulse svc/frontend-service 8080:80 &
-          PF_PID=$!
-          sleep 3
-          
-          for i in {1..10}; do
-            echo "Attempt $i/10: Checking frontend health..."
-            if curl -s -f http://localhost:8080/health 2>/dev/null; then
-              echo "✅ Frontend is healthy!"
-              kill $PF_PID 2>/dev/null || true
-              exit 0
-            fi
-            sleep 2
-          done
-          
-          echo "⚠️ Frontend health check timed out"
-          kill $PF_PID 2>/dev/null || true
-        continue-on-error: true
-
-      - name: Final Deployment Summary
-        if: always()
-        run: |
-          echo "═══════════════════════════════════════════════"
-          echo "DEPLOYMENT VERIFICATION COMPLETE"
-          echo "═══════════════════════════════════════════════"
-          echo ""
-          echo "Deployment Status:"
-          kubectl get deployment -n stockpulse
-          echo ""
-          echo "Pod Status:"
-          kubectl get pods -n stockpulse -o wide
-          echo ""
-          echo "Service Status:"
-          kubectl get svc -n stockpulse
-          echo ""
-          echo "✅ Deployment verification completed"
-
-  # ═══════════════════════════════════════════════════════════
-  # JOB 7: NOTIFY STATUS
-  # ═══════════════════════════════════════════════════════════
-  notify:
-    name: Notify Status
-    runs-on: ubuntu-latest
-    needs: [build-test, sonarcloud-analysis, docker-build, docker-push, kubernetes-deploy, deployment-verification]
-    if: always()
-    
-    steps:
-      - name: Pipeline Status Report
-        run: |
-          echo "═══════════════════════════════════════════════"
-          echo "CI/CD PIPELINE STATUS REPORT"
-          echo "═══════════════════════════════════════════════"
-          echo ""
-          echo "Job Results:"
-          echo "  Build & Test: ${{ needs.build-test.result }}"
-          echo "  SonarCloud: ${{ needs.sonarcloud-analysis.result }}"
-          echo "  Docker Build: ${{ needs.docker-build.result }}"
-          echo "  Docker Push: ${{ needs.docker-push.result }}"
-          echo "  Kubernetes Deploy: ${{ needs.kubernetes-deploy.result }}"
-          echo "  Deployment Verification: ${{ needs.deployment-verification.result }}"
-          echo ""
-
-          # ── Step 1: Build & Test is always mandatory ──
-          if [ "${{ needs.build-test.result }}" != "success" ]; then
-            echo "❌ PIPELINE FAILED: Build & Test did not succeed"
-            exit 1
-          fi
-
-          # ── Step 2: SonarCloud — failure/cancelled is bad; skipped is OK (e.g. PRs) ──
-          SONAR_RESULT="${{ needs.sonarcloud-analysis.result }}"
-          if [ "$SONAR_RESULT" == "failure" ] || [ "$SONAR_RESULT" == "cancelled" ]; then
-            echo "❌ PIPELINE FAILED: SonarCloud analysis failed"
-            exit 1
-          fi
-
-          # ── Step 3: Check optional deployment stages ──
-          # A result of 'success' or 'skipped' is acceptable for optional jobs.
-          PIPELINE_OK=true
-          FAILED_STAGES=""
-
-          for JOB_PAIR in \
-            "Docker Build:${{ needs.docker-build.result }}" \
-            "Docker Push:${{ needs.docker-push.result }}" \
-            "Kubernetes Deploy:${{ needs.kubernetes-deploy.result }}" \
-            "Deployment Verification:${{ needs.deployment-verification.result }}"; do
-            JOB_NAME="${JOB_PAIR%%:*}"
-            JOB_RESULT="${JOB_PAIR##*:}"
-            if [ "$JOB_RESULT" == "failure" ] || [ "$JOB_RESULT" == "cancelled" ]; then
-              PIPELINE_OK=false
-              FAILED_STAGES="$FAILED_STAGES\n  ❌ $JOB_NAME ($JOB_RESULT)"
-            fi
-          done
-
-          if [ "$PIPELINE_OK" != "true" ]; then
-            echo "❌ PIPELINE FAILED"
-            echo ""
-            echo "Failed stages:"
-            echo -e "$FAILED_STAGES"
-            exit 1
-          fi
-
-          # ── Step 4: Print success summary ──
-          echo "✅ PIPELINE COMPLETED SUCCESSFULLY!"
-          echo ""
-
-          # Check if this was a full deployment run
-          if [ "${{ needs.kubernetes-deploy.result }}" == "success" ] && \
-             [ "${{ needs.deployment-verification.result }}" == "success" ]; then
-            echo "All stages completed:"
-            echo "  ✅ Code tested and built"
-            echo "  ✅ Code quality analyzed"
-            echo "  ✅ Docker images built and pushed"
-            echo "  ✅ Kubernetes deployment updated and verified"
-            echo ""
-            echo "Production is now live!"
-          else
-            echo "Pipeline completed (some optional stages were skipped):"
-            echo "  ✅ Build & Test passed"
-            [ "$SONAR_RESULT" == "success" ] && echo "  ✅ SonarCloud analysis passed"
-            [ "$SONAR_RESULT" == "skipped" ] && echo "  ⚠️  SonarCloud skipped (PR or branch filter)"
-            [ "${{ needs.docker-build.result }}" == "success" ] && echo "  ✅ Docker images built"
-            [ "${{ needs.docker-build.result }}" == "skipped" ] && echo "  ⚠️  Docker Build skipped"
-            [ "${{ needs.docker-push.result }}" == "success" ] && echo "  ✅ Docker images pushed"
-            [ "${{ needs.docker-push.result }}" == "skipped" ] && echo "  ⚠️  Docker Push skipped"
-            [ "${{ needs.kubernetes-deploy.result }}" == "skipped" ] && echo "  ⚠️  Kubernetes Deploy skipped"
-            [ "${{ needs.deployment-verification.result }}" == "skipped" ] && echo "  ⚠️  Deployment Verification skipped"
-          fi
+      - name: Wait for frontend pods ready
+        shell: powershell
+        run: kubectl wait --for=condition=ready pod -l app=stockpulse-frontend -n stockpulse --timeout=300s
