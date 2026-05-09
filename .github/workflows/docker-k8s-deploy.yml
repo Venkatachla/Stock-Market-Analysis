@@ -90,13 +90,28 @@ jobs:
           cat backend.log
           exit 1
 
+      - name: Show Repository Structure
+        run: |
+          pwd
+          ls -la
+          found=0
+          for dir in tests api/tests backend/tests; do
+            if [ -d "$dir" ]; then
+              found=1
+              find "$dir" -name "test*.py"
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "No expected test directories found (tests, api/tests, backend/tests)"
+          fi
+
       - name: Run backend unit tests
         run: |
           python -m pytest tests -q
 
       - name: Run backend integration tests
         run: |
-          python -m pytest test_endpoints.py test_trading_flow.py -q
+          python -m pytest tests/test_endpoints.py tests/test_trading_flow.py -q
 
       - name: Print backend logs on failure
         if: failure()
