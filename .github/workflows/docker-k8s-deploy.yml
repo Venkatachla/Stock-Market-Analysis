@@ -247,12 +247,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate Kubernetes deployment toggle
+      - name: Resolve Kubernetes deployment toggle
         shell: powershell
         run: |
-          if ("${{ vars.ENABLE_KUBERNETES_DEPLOY }}" -ne "true") {
-            throw "ENABLE_KUBERNETES_DEPLOY must be set to true."
+          $ENABLE_KUBERNETES_DEPLOY = "${{ vars.ENABLE_KUBERNETES_DEPLOY }}"
+          if ([string]::IsNullOrWhiteSpace($ENABLE_KUBERNETES_DEPLOY)) {
+            $ENABLE_KUBERNETES_DEPLOY = "true"
           }
+          "ENABLE_KUBERNETES_DEPLOY=$ENABLE_KUBERNETES_DEPLOY" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Kubernetes deployment enabled: $ENABLE_KUBERNETES_DEPLOY"
 
       - name: Validate kubeconfig secret
         shell: powershell
@@ -274,6 +277,7 @@ jobs:
         run: |
           kubectl cluster-info
           kubectl get nodes
+          kubectl get pods -A
 
       - name: Create namespace
         shell: powershell
