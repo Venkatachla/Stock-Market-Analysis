@@ -4,12 +4,12 @@ metadata:
   name: stockpulse-ingress
   namespace: stockpulse
   annotations:
-    kubernetes.io/ingress.class: nginx
     # TLS is optional - remove or disable cert-manager requirement if not installed
     # cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/rate-limit: "100"
 spec:
+  ingressClassName: nginx
   # TLS configuration - uncomment if cert-manager is installed
   # tls:
   #   - hosts:
