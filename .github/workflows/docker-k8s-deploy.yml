@@ -191,7 +191,7 @@ jobs:
           npx vitest run --coverage --coverage.provider=v8 --coverage.reporter=lcov --coverage.reportsDirectory=coverage
 
       - name: Validate Sonar token
-        run: test -n "${{ secrets.SONAR_TOKEN }}"
+        run: test -n "${{ secrets.SONAR_TOKEN }}" || (echo "Error: SONAR_TOKEN secret is not set" && exit 1)
 
       - name: Verify Coverage File
         run: |
