@@ -298,7 +298,7 @@ jobs:
     name: Kubernetes Deploy
     runs-on: ubuntu-latest
     needs: docker-push
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd') && secrets.KUBE_CONFIG_DATA != '' && vars.ENABLE_KUBERNETES_DEPLOY == 'true'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd') && env.KUBE_CONFIG_DATA != '' && vars.ENABLE_KUBERNETES_DEPLOY == 'true'
     permissions:
       contents: read
     
@@ -329,7 +329,7 @@ jobs:
           echo "Detected cluster server: $CLUSTER_SERVER"
           if echo "$CLUSTER_SERVER" | grep -q "kubernetes.docker.internal"; then
             echo "❌ Invalid kubeconfig for GitHub-hosted runners: kubernetes.docker.internal is local-only."
-            echo "Set ENABLE_KUBERNETES_DEPLOY=false in repository variables to skip Kubernetes for now,"
+            echo "Set ENABLE_KUBERNETES_DEPLOY=false in Settings > Secrets and variables > Actions > Variables to skip Kubernetes for now,"
             echo "or replace KUBE_CONFIG_DATA with a kubeconfig from a cloud Kubernetes cluster."
             exit 1
           fi
@@ -402,7 +402,7 @@ jobs:
     name: Deployment Verification
     runs-on: ubuntu-latest
     needs: kubernetes-deploy
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd') && secrets.KUBE_CONFIG_DATA != '' && vars.ENABLE_KUBERNETES_DEPLOY == 'true' && needs.kubernetes-deploy.result == 'success'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd') && env.KUBE_CONFIG_DATA != '' && vars.ENABLE_KUBERNETES_DEPLOY == 'true'
     permissions:
       contents: read
     
@@ -597,7 +597,7 @@ jobs:
           REQUIRE_DEPLOYMENT="false"
           if [ "${{ github.event_name }}" == "push" ] && \
              { [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.ref }}" == "refs/heads/devops/docker-k8s-cicd" ]; } && \
-             [ "${{ secrets.KUBE_CONFIG_DATA != '' }}" == "true" ] && \
+             [ -n "$KUBE_CONFIG_DATA" ] && \
              [ "${{ vars.ENABLE_KUBERNETES_DEPLOY }}" == "true" ]; then
             REQUIRE_DEPLOYMENT="true"
           fi
@@ -645,7 +645,13 @@ jobs:
             echo "  ✅ SonarCloud analysis passed"
             echo "  ✅ Docker images built"
             echo "  ✅ Docker images pushed to registry"
-            echo "  ⚠️ Kubernetes deployment skipped (not enabled or kubeconfig unavailable)"
+            if [ "${{ vars.ENABLE_KUBERNETES_DEPLOY }}" != "true" ]; then
+              echo "  ⚠️ Kubernetes deployment skipped: ENABLE_KUBERNETES_DEPLOY is not set to true"
+            elif [ -z "$KUBE_CONFIG_DATA" ]; then
+              echo "  ⚠️ Kubernetes deployment skipped: KUBE_CONFIG_DATA is missing"
+            else
+              echo "  ⚠️ Kubernetes deployment skipped: event/branch does not require deployment"
+            fi
           fi
     
 
