@@ -190,6 +190,15 @@ jobs:
           cd frontend
           npx vitest run --coverage --coverage.provider=v8 --coverage.reporter=lcov --coverage.reportsDirectory=coverage
 
+      - name: Validate Sonar token
+        run: test -n "${{ secrets.SONAR_TOKEN }}"
+
+      - name: Verify Coverage File
+        run: |
+          ls -la
+          cat sonar-project.properties
+          test -f coverage.xml && echo "coverage.xml exists"
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v2
         env:

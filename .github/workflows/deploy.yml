@@ -223,32 +223,28 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -r requirements-test.txt
+          pip install pytest pytest-cov "httpx<0.25"
 
       - name: Run backend tests with coverage
         run: |
-          EXIT_CODE=0
-          python -m pytest --cov=api --cov=backtest --cov=features --cov=training --cov=utils --cov=strategy --cov=trading --cov-report=xml:coverage.xml || EXIT_CODE=$?
-          # Exit code 5 = no tests collected (acceptable when no test files exist yet)
-          # Exit code 0 = tests passed
-          # Any other exit code = real failure, must propagate
-          if [ "$EXIT_CODE" -eq 5 ]; then
-            echo "No backend tests found — skipping coverage"
-          elif [ "$EXIT_CODE" -ne 0 ]; then
-            echo "Backend tests FAILED with exit code $EXIT_CODE"
-            exit $EXIT_CODE
-          fi
-          # Ensure coverage.xml exists for SonarCloud (even if empty)
-          if [ ! -f coverage.xml ]; then
-            echo '<?xml version="1.0" ?><coverage version="5.5"><packages></packages></coverage>' > coverage.xml
-          fi
+          pytest tests/ \
+            --cov=api \
+            --cov=frontend/src \
+            --cov-report=xml \
+            --cov-report=term
+
+      - name: Validate Sonar token
+        run: test -n "${{ secrets.SONAR_TOKEN }}"
+
+      - name: Verify Coverage File
+        run: |
+          ls -la
+          cat sonar-project.properties
+          test -f coverage.xml && echo "coverage.xml exists"
 
       # --- SonarCloud Analysis ---
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602  # v6
-        with:
-          args: >
-            -Dsonar.branch.name=${{ github.ref_name }}
+        uses: SonarSource/sonarqube-scan-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
