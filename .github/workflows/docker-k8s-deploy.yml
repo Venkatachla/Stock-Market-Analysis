@@ -94,11 +94,16 @@ jobs:
         run: |
           pwd
           ls -la
+          found=0
           for dir in tests api/tests backend/tests; do
             if [ -d "$dir" ]; then
+              found=1
               find "$dir" -name "test*.py"
             fi
           done
+          if [ "$found" -eq 0 ]; then
+            echo "No expected test directories found (tests, api/tests, backend/tests)"
+          fi
 
       - name: Run backend unit tests
         run: |
