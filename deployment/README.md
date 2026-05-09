@@ -36,7 +36,7 @@ cd deployment
 python verify_cicd_setup.py
 ```
 
-### 2. **Add GitHub Secrets (3 minutes)**
+### 2. **Add GitHub Secrets and Variables (3 minutes)**
 
 Go to: **Settings → Secrets and variables → Actions**
 
@@ -44,6 +44,12 @@ Add secrets:
 - `DOCKER_USERNAME` = `venkatachalav`
 - `DOCKER_PASSWORD` = Your Docker Hub token
 - `KUBE_CONFIG_DATA` = Base64 encoded kubeconfig
+
+Add variable:
+- `ENABLE_KUBERNETES_DEPLOY` = `true`
+
+> ⚠️ Use a **cloud Kubernetes cluster** kubeconfig (GKE/EKS/AKS/DigitalOcean Kubernetes).  
+> Do **not** use Docker Desktop local kubeconfig endpoints like `kubernetes.docker.internal`.
 
 ### 3. **Commit & Push (2 minutes)**
 ```bash
@@ -231,6 +237,8 @@ kubectl port-forward -n stockpulse svc/frontend-service 3000:80
 - **Check:** Is it base64 encoded? (single line)
 - **Fix:** `cat ~/.kube/config | base64 -w 0`
 - **Verify:** Copy full output to KUBE_CONFIG_DATA
+- **Check:** `kubectl config view --raw` points to a cloud-reachable cluster endpoint
+- **Fail case:** `kubernetes.docker.internal`, `localhost`, and `127.0.0.1` endpoints are invalid on GitHub-hosted runners
 
 ### Pods Not Starting
 - **Check:** `kubectl describe pod <pod-name> -n stockpulse`
