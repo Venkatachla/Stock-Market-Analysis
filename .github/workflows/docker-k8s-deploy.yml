@@ -94,7 +94,7 @@ jobs:
         run: |
           pwd
           ls -la
-          find . -name "test*.py"
+          find . -path ./node_modules -prune -o -path ./.git -prune -o -name "test*.py" -print
 
       - name: Run backend unit tests
         run: |
