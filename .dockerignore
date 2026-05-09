@@ -7,7 +7,6 @@
 node_modules
 npm-debug.log
 yarn-error.log
-package-lock.json
 yarn.lock
 frontend/node_modules
 frontend/dist
@@ -43,6 +42,8 @@ build/
 .pytest_cache
 .coverage
 htmlcov/
+frontend/coverage
+coverage.xml
 
 # Logs
 logs/
