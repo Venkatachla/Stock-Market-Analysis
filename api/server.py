@@ -12,6 +12,9 @@ import asyncio
 from functools import lru_cache
 from datetime import datetime
 from typing import List, Optional, Tuple
+import hashlib
+import secrets
+import logging
 
 import joblib
 import numpy as np
@@ -109,6 +112,18 @@ class PredictResponse(BaseModel):
     detail: dict
 
 
+def verify_model_hash(file_path: str, expected_hash: str) -> bool:
+    """Verifies the SHA256 checksum of a model file."""
+    sha256 = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest() == expected_hash
+    except Exception as e:
+        logging.error(f"Error calculating hash for {file_path}: {e}")
+        return False
+
 @lru_cache(maxsize=1)
 def load_models():
     bundle = joblib.load("models/tree_models.pkl")
@@ -119,19 +134,51 @@ def load_models():
 
     # Optional LSTM
     lstm_path = "models/lstm.pt"
+    # Pre-calculated trusted SHA256 hash for models/lstm.pt
+    trusted_lstm_hash = "d9883277b1ac35ba8702104c62156ca39c7f00fb861c18f38cfe6021ff8cc8b5"
+    
     lstm = None
     if torch.cuda.is_available():
         map_location = "cuda"
     else:
         map_location = "cpu"
+    
     try:
+        from pathlib import Path
+        allowed_dir = Path("models").resolve()
+        model_path = Path(lstm_path).resolve()
+        
+        # Path validation
+        if not str(model_path).startswith(str(allowed_dir)):
+            raise ValueError("Invalid model path: Path traversal detected")
+            
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model file not found: {lstm_path}")
+            
+        # Hash validation
+        if not verify_model_hash(str(model_path), trusted_lstm_hash):
+            raise ValueError("Model hash verification failed! Potential tampering detected.")
+            
         lstm_model = LSTMClassifier(input_size=len(FEATURE_COLUMNS))
-        state = torch.load(lstm_path, map_location=map_location)
+        # Model file is locally generated and SHA256 validated before loading.
+        # weights_only=True prevents unsafe pickle object deserialization.
+        state = torch.load(lstm_path, map_location=map_location, weights_only=True)
         lstm_model.load_state_dict(state)
         lstm_model.eval()
         lstm = lstm_model
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        logging.warning(f"LSTM model not found: {e}")
         lstm = None
+    except ValueError as e:
+        logging.error(f"Security/Validation error loading LSTM model: {e}")
+        lstm = None
+    except RuntimeError as e:
+        logging.error(f"Runtime error loading LSTM model state dict: {e}")
+        lstm = None
+    except Exception as e:
+        logging.error(f"Unexpected error during LSTM model loading: {e}")
+        lstm = None
+        
     return {
         "xgb": xgb,
         "lgbm": lgbm,
@@ -490,7 +537,10 @@ def top_bulls(limit: int = 20):
     
     # Sample implementation - return top symbols with simulated probabilities
     stocks = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).head(limit).copy()
-    stocks["prob"] = 70 + np.random.randint(0, 30, len(stocks))  # 70-100% up probability
+    
+    # Generate secure random probabilities
+    probs = [70 + secrets.choice(range(31)) for _ in range(len(stocks))]
+    stocks["prob"] = probs  # 70-100% up probability
     stocks["signal"] = "BUY"
     
     return {"stocks": stocks.to_dict("records"), "total": len(stocks)}
@@ -504,7 +554,8 @@ def top_bears(limit: int = 20):
         return {"stocks": [], "total": 0}
     
     stocks = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).tail(limit).copy()
-    stocks["prob"] = np.random.randint(0, 30, len(stocks))  # 0-30% up probability
+    probs = [secrets.choice(range(31)) for _ in range(len(stocks))]
+    stocks["prob"] = probs  # 0-30% up probability
     stocks["signal"] = "SELL"
     
     return {"stocks": stocks.to_dict("records"), "total": len(stocks)}
@@ -518,7 +569,11 @@ def top_losers(limit: int = 20):
         return {"stocks": [], "total": 0}
     
     stocks = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).sample(min(limit, len(catalog))).copy()
-    stocks["change_pct"] = -np.random.rand(len(stocks)) * 10  # -0 to -10% change
+    
+    # Generate secure random pct changes
+    sys_random = secrets.SystemRandom()
+    change_pcts = [-sys_random.random() * 10 for _ in range(len(stocks))]
+    stocks["change_pct"] = change_pcts  # -0 to -10% change
     
     return {"stocks": stocks.to_dict("records"), "total": len(stocks)}
 
@@ -532,10 +587,10 @@ def scanner_results():
     
     top_count = min(10, len(catalog))
     bulls = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).head(top_count).copy()
-    bulls["prob"] = 75 + np.random.randint(0, 25, len(bulls))
+    bulls["prob"] = [75 + secrets.choice(range(26)) for _ in range(len(bulls))]
     
     bears = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).tail(top_count).copy()
-    bears["prob"] = 20 + np.random.randint(0, 20, len(bears))
+    bears["prob"] = [20 + secrets.choice(range(21)) for _ in range(len(bears))]
     
     return {
         "bulls": bulls.to_dict("records"),
@@ -570,13 +625,14 @@ def live_alerts(timeframe: str = "1d", min_confidence: int = 75, limit: int = 5)
         return {"alerts": []}
     
     alerts = []
+    sys_random = secrets.SystemRandom()
     for i in range(limit):
         symbol = catalog.iloc[i * 5 % len(catalog)]["symbol"]
         alerts.append({
             "symbol": symbol,
             "signal": "BUY" if i % 2 == 0 else "SELL",
-            "confidence": min_confidence + np.random.randint(0, 25),
-            "price": 100 + np.random.rand() * 50,
+            "confidence": min_confidence + secrets.choice(range(26)),
+            "price": 100 + sys_random.random() * 50,
             "time": datetime.utcnow().isoformat()
         })
     
