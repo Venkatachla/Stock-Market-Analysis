@@ -22,9 +22,11 @@ logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, HTTPException, Header, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 import yfinance as yf
+from prometheus_fastapi_instrumentator import Instrumentator
+import prometheus_client
 
 # Import from existing modules
 try:
@@ -592,8 +594,35 @@ async def risk_os_overview(capital: float = Query(100000.0, gt=0)):
 async def health():
     return {"status": "alive", "version": "2.0.0"}
 
+@app.get("/actuator/health")
+async def actuator_health():
+    return {"status": "UP"}
+
+@app.get("/actuator/info")
+async def actuator_info():
+    return {"app": {"name": "Stock Market Analysis Backend", "version": "2.0.0", "description": "FastAPI backend mimicking Spring Boot Actuator"}}
+
+@app.get("/actuator/prometheus")
+async def actuator_prometheus():
+    # Provide an alias for the Spring Boot expected path using prometheus_client directly
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 @app.get("/")
 async def root():
     return {"message": "STCOK Trading API (Fixed v2.0)"}
+
+# Prometheus Instrumentation
+instrumentator = Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    should_respect_env_var=True,
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=[".*admin.*", "/metrics"],
+    env_var_name="ENABLE_METRICS",
+    inprogress_name="inprogress",
+    inprogress_labels=True,
+)
+instrumentator.instrument(app).expose(app, endpoint="/metrics")
 
 logger.info("✅ Backend ready to start!")

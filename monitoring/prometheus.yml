@@ -1,0 +1,27 @@
+# prometheus.yml
+# This file configures how Prometheus scrapes metrics from our applications.
+
+global:
+  scrape_interval: 15s     # How often to scrape targets by default
+  evaluation_interval: 15s # How often to evaluate rules
+
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'stockpulse-backend'
+    
+    # The path where metrics are exposed. We are using the standard /metrics path
+    # (also accessible via /actuator/prometheus in the FastAPI app)
+    metrics_path: /actuator/prometheus
+    
+    # How often to scrape this specific job
+    scrape_interval: 10s
+    
+    static_configs:
+      - targets: 
+          # 1. Use 'host.docker.internal:8000' for Docker Desktop compatibility when backend runs on the host.
+          # 2. Use 'localhost:8000' if Prometheus and Backend are on the same host network.
+          # 3. Use 'stockpulse-backend:8000' if running inside Kubernetes or same Docker network.
+          - 'host.docker.internal:8000'
+        labels:
+          environment: 'development'
+          service: 'fastapi-backend'
