@@ -205,6 +205,77 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   # ═══════════════════════════════════════════════════════════
+  # JOB 2B: MONITORING VERIFICATION
+  # ═══════════════════════════════════════════════════════════
+  monitoring-verification:
+    name: Monitoring Verification
+    runs-on: ubuntu-latest
+    needs: build-test
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start FastAPI Backend
+        run: |
+          echo "DATABASE_URL=sqlite:///./db.sqlite3" >> $GITHUB_ENV
+          nohup uvicorn api.app_fixed:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          echo $! > backend.pid
+          sleep 2
+
+      - name: Verify Actuator Health
+        run: |
+          echo "Checking /actuator/health..."
+          for i in {1..10}; do
+            if curl -s -f http://localhost:8000/actuator/health; then
+              echo -e "\n✅ Health endpoint is UP"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "❌ Backend failed to start or health endpoint unreachable"
+          cat backend.log
+          exit 1
+
+      - name: Verify Actuator Info
+        run: |
+          echo "Checking /actuator/info..."
+          curl -s -f http://localhost:8000/actuator/info
+          echo -e "\n✅ Info endpoint is reachable"
+
+      - name: Verify Prometheus Metrics
+        run: |
+          echo "Checking /actuator/prometheus..."
+          curl -s -f http://localhost:8000/actuator/prometheus > metrics.txt
+          if grep -q "python_gc_" metrics.txt; then
+            echo "✅ Standard Python Prometheus metrics found in output"
+          else
+            echo "❌ Failed to find expected metrics"
+            exit 1
+          fi
+
+      - name: Stop FastAPI Backend
+        if: always()
+        run: |
+          if [ -f backend.pid ]; then
+            kill "$(cat backend.pid)" 2>/dev/null || true
+          fi
+          cat backend.log || true
+
+  # ═══════════════════════════════════════════════════════════
   # JOB 3: DOCKER BUILD
   # ═══════════════════════════════════════════════════════════
   docker-build:
@@ -708,7 +779,7 @@ jobs:
   notify:
     name: Notify Status
     runs-on: ubuntu-latest
-    needs: [build-test, sonarcloud-analysis, docker-build, docker-push, kubernetes-deploy, deployment-verification]
+    needs: [build-test, sonarcloud-analysis, monitoring-verification, docker-build, docker-push, kubernetes-deploy, deployment-verification]
     if: always()
     
     steps:
@@ -721,12 +792,13 @@ jobs:
           echo "Job Results:"
           echo "  Build & Test: ${{ needs.build-test.result }}"
           echo "  SonarCloud: ${{ needs.sonarcloud-analysis.result }}"
+          echo "  Monitoring Verification: ${{ needs.monitoring-verification.result }}"
           echo "  Docker Build: ${{ needs.docker-build.result }}"
           echo "  Docker Push: ${{ needs.docker-push.result }}"
           echo "  Kubernetes Deploy: ${{ needs.kubernetes-deploy.result }}"
           echo "  Deployment Verification: ${{ needs.deployment-verification.result }}"
           echo ""
-
+          
           # ── Step 1: Build & Test is always mandatory ──
           if [ "${{ needs.build-test.result }}" != "success" ]; then
             echo "❌ PIPELINE FAILED: Build & Test did not succeed"
@@ -737,6 +809,13 @@ jobs:
           SONAR_RESULT="${{ needs.sonarcloud-analysis.result }}"
           if [ "$SONAR_RESULT" == "failure" ] || [ "$SONAR_RESULT" == "cancelled" ]; then
             echo "❌ PIPELINE FAILED: SonarCloud analysis failed"
+            exit 1
+          fi
+
+          # ── Step 2.5: Monitoring Verification ──
+          MONITORING_RESULT="${{ needs.monitoring-verification.result }}"
+          if [ "$MONITORING_RESULT" == "failure" ] || [ "$MONITORING_RESULT" == "cancelled" ]; then
+            echo "❌ PIPELINE FAILED: Monitoring Verification failed"
             exit 1
           fi
 
