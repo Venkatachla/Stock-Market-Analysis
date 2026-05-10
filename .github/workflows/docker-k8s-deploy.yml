@@ -7,6 +7,7 @@ on:
       - devops/docker-k8s-cicd
       - copilot/resolve-merge-conflicts-git-action
       - fix-docker-k8s-pipeline
+      - grafana-dashboard
     paths:
       - 'api/**'
       - 'frontend/**'
