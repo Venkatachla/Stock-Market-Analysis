@@ -658,124 +658,175 @@ jobs:
           }
 
       - name: Verify backend replicas
-        shell: bash
+        shell: powershell
         run: |
-          echo "=== Backend Deployment Status ==="
+          Write-Host "=== Backend Deployment Status ==="
           kubectl get deployment stockpulse-backend -n stockpulse
-          BACKEND_READY=$(kubectl get deployment -n stockpulse stockpulse-backend -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-          BACKEND_DESIRED=$(kubectl get deployment -n stockpulse stockpulse-backend -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "3")
-          echo "Backend Ready Replicas: $BACKEND_READY/$BACKEND_DESIRED"
-          if [ "$BACKEND_READY" = "$BACKEND_DESIRED" ]; then
-            echo "✅ Backend pods are ready"
-          else
-            echo "❌ Backend pods are not fully ready"
+          $BACKEND_READY = (kubectl get deployment -n stockpulse stockpulse-backend -o jsonpath='{.status.readyReplicas}' 2>$null)
+          if ([string]::IsNullOrWhiteSpace($BACKEND_READY)) { $BACKEND_READY = "0" }
+          $BACKEND_DESIRED = (kubectl get deployment -n stockpulse stockpulse-backend -o jsonpath='{.spec.replicas}' 2>$null)
+          if ([string]::IsNullOrWhiteSpace($BACKEND_DESIRED)) { $BACKEND_DESIRED = "3" }
+          Write-Host "Backend Ready Replicas: $BACKEND_READY/$BACKEND_DESIRED"
+          if ($BACKEND_READY -eq $BACKEND_DESIRED) {
+            Write-Host "✅ Backend pods are ready"
+          } else {
+            Write-Host "❌ Backend pods are not fully ready"
             exit 1
-          fi
+          }
 
       - name: Verify frontend replicas
-        shell: bash
+        shell: powershell
         run: |
-          echo "=== Frontend Deployment Status ==="
+          Write-Host "=== Frontend Deployment Status ==="
           kubectl get deployment stockpulse-frontend -n stockpulse
-          FRONTEND_READY=$(kubectl get deployment -n stockpulse stockpulse-frontend -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-          FRONTEND_DESIRED=$(kubectl get deployment -n stockpulse stockpulse-frontend -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "2")
-          echo "Frontend Ready Replicas: $FRONTEND_READY/$FRONTEND_DESIRED"
-          if [ "$FRONTEND_READY" = "$FRONTEND_DESIRED" ]; then
-            echo "✅ Frontend pods are ready"
-          else
-            echo "❌ Frontend pods are not fully ready"
+          $FRONTEND_READY = (kubectl get deployment -n stockpulse stockpulse-frontend -o jsonpath='{.status.readyReplicas}' 2>$null)
+          if ([string]::IsNullOrWhiteSpace($FRONTEND_READY)) { $FRONTEND_READY = "0" }
+          $FRONTEND_DESIRED = (kubectl get deployment -n stockpulse stockpulse-frontend -o jsonpath='{.spec.replicas}' 2>$null)
+          if ([string]::IsNullOrWhiteSpace($FRONTEND_DESIRED)) { $FRONTEND_DESIRED = "2" }
+          Write-Host "Frontend Ready Replicas: $FRONTEND_READY/$FRONTEND_DESIRED"
+          if ($FRONTEND_READY -eq $FRONTEND_DESIRED) {
+            Write-Host "✅ Frontend pods are ready"
+          } else {
+            Write-Host "❌ Frontend pods are not fully ready"
             exit 1
-          fi
+          }
 
       - name: Wait for pods to be ready
+        shell: powershell
         run: |
-          echo "Waiting for backend pods to be ready..."
+          Write-Host "Waiting for backend pods to be ready..."
           kubectl wait --for=condition=ready pod -l app=stockpulse-backend -n stockpulse --timeout=300s
-          echo "Waiting for frontend pods to be ready..."
+          Write-Host "Waiting for frontend pods to be ready..."
           kubectl wait --for=condition=ready pod -l app=stockpulse-frontend -n stockpulse --timeout=300s
-          echo "✅ Pod ready checks completed"
+          Write-Host "✅ Pod ready checks completed"
 
-      - name: Get pod logs
+      - name: Show Backend Logs
         if: always()
+        shell: powershell
         run: |
-          echo "=== Backend Logs (last 50 lines) ==="
-          kubectl logs -n stockpulse -l app=stockpulse-backend --tail=50 -c backend --all-containers=true 2>$null || echo "No logs available"
-          echo ""
-          echo "=== Frontend Logs (last 50 lines) ==="
-          kubectl logs -n stockpulse -l app=stockpulse-frontend --tail=50 -c frontend --all-containers=true 2>$null || echo "No logs available"
-          echo ""
-          echo "=== Recent Pod Events ==="
-          kubectl get events -n stockpulse --sort-by='.lastTimestamp' | Select-Object -Last 20 || echo "No events available"
+          Write-Host "=== Backend Logs (last 50 lines) ==="
+          $backendLogs = kubectl logs deployment/stockpulse-backend --tail=50 -c backend --all-containers=true 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host $backendLogs
+          } else {
+            Write-Host "No backend logs available"
+          }
+
+      - name: Show Frontend Logs
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "=== Frontend Logs (last 50 lines) ==="
+          $frontendLogs = kubectl logs deployment/stockpulse-frontend --tail=50 -c frontend --all-containers=true 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host $frontendLogs
+          } else {
+            Write-Host "No frontend logs available"
+          }
+
+      - name: Show Kubernetes Events
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "=== Recent Kubernetes Events ==="
+          $events = kubectl get events -n stockpulse --sort-by='.lastTimestamp' 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            $events | Select-Object -Last 20
+          } else {
+            Write-Host "No events found"
+          }
 
       - name: Health Check - Backend API
-        shell: bash
+        shell: powershell
         run: |
-          echo "Attempting backend health check..."
-          timeout 60s kubectl port-forward -n stockpulse svc/backend-service 8000:8000 &
-          PF_PID=$!
-          sleep 3
+          Write-Host "Attempting backend health check..."
+          $pfProcess = Start-Process kubectl -ArgumentList "port-forward -n stockpulse svc/backend-service 8000:8000" -PassThru -NoNewWindow
+          Start-Sleep -Seconds 3
           
-          for i in {1..10}; do
-            echo "Attempt $i/10: Checking backend health..."
-            if curl -s -f http://localhost:8000/health 2>/dev/null | grep -q "alive"; then
-              echo "✅ Backend API is healthy!"
-              
-              # Optional: Verify Prometheus metrics are exposed
-              echo "Checking Prometheus metrics endpoint..."
-              if curl -s -f http://localhost:8000/metrics 2>/dev/null | grep -q "python_gc_"; then
-                echo "✅ Prometheus metrics endpoint is healthy!"
-              else
-                echo "⚠️ Prometheus metrics endpoint check failed or timed out"
-              fi
-              
-              kill $PF_PID 2>/dev/null || true
-              exit 0
-            fi
-            sleep 2
-          done
+          $healthy = $false
+          for ($i=1; $i -le 10; $i++) {
+              Write-Host "Attempt $i/10: Checking backend health..."
+              try {
+                  $response = Invoke-RestMethod -Uri "http://localhost:8000/health" -Method Get -ErrorAction Stop
+                  if (($response | ConvertTo-Json -Depth 5) -match "alive" -or $response.status -eq "ok") {
+                      Write-Host "✅ Backend API is healthy!"
+                      
+                      try {
+                          $metrics = Invoke-WebRequest -Uri "http://localhost:8000/metrics" -Method Get -ErrorAction Stop
+                          if ($metrics.Content -match "python_gc_") {
+                              Write-Host "✅ Prometheus metrics endpoint is healthy!"
+                          } else {
+                              Write-Host "⚠️ Prometheus metrics endpoint check failed"
+                          }
+                      } catch {
+                          Write-Host "⚠️ Prometheus metrics endpoint timed out"
+                      }
+                      
+                      $healthy = $true
+                      break
+                  }
+              } catch {
+                  # Ignore errors while waiting
+              }
+              Start-Sleep -Seconds 2
+          }
           
-          echo "⚠️ Backend health check timed out"
-          kill $PF_PID 2>/dev/null || true
+          if (-not $healthy) {
+              Write-Host "⚠️ Backend health check timed out"
+          }
+          
+          if ($pfProcess -and -not $pfProcess.HasExited) {
+              Stop-Process -Id $pfProcess.Id -Force -ErrorAction SilentlyContinue
+          }
         continue-on-error: true
 
       - name: Health Check - Frontend
-        shell: bash
+        shell: powershell
         run: |
-          echo "Attempting frontend health check..."
-          timeout 60s kubectl port-forward -n stockpulse svc/frontend-service 8080:80 &
-          PF_PID=$!
-          sleep 3
+          Write-Host "Attempting frontend health check..."
+          $pfProcess = Start-Process kubectl -ArgumentList "port-forward -n stockpulse svc/frontend-service 8080:80" -PassThru -NoNewWindow
+          Start-Sleep -Seconds 3
           
-          for i in {1..10}; do
-            echo "Attempt $i/10: Checking frontend health..."
-            if curl -s -f http://localhost:8080/health 2>/dev/null; then
-              echo "✅ Frontend is healthy!"
-              kill $PF_PID 2>/dev/null || true
-              exit 0
-            fi
-            sleep 2
-          done
+          $healthy = $false
+          for ($i=1; $i -le 10; $i++) {
+              Write-Host "Attempt $i/10: Checking frontend health..."
+              try {
+                  $response = Invoke-RestMethod -Uri "http://localhost:8080/health" -Method Get -ErrorAction Stop
+                  Write-Host "✅ Frontend is healthy!"
+                  $healthy = $true
+                  break
+              } catch {
+                  # Ignore errors while waiting
+              }
+              Start-Sleep -Seconds 2
+          }
           
-          echo "⚠️ Frontend health check timed out"
-          kill $PF_PID 2>/dev/null || true
+          if (-not $healthy) {
+              Write-Host "⚠️ Frontend health check timed out"
+          }
+          
+          if ($pfProcess -and -not $pfProcess.HasExited) {
+              Stop-Process -Id $pfProcess.Id -Force -ErrorAction SilentlyContinue
+          }
         continue-on-error: true
 
       - name: Final Deployment Summary
+        shell: powershell
         run: |
-          echo "═══════════════════════════════════════════════"
-          echo "DEPLOYMENT VERIFICATION COMPLETE"
-          echo "═══════════════════════════════════════════════"
-          echo ""
-          echo "Deployment Status:"
-          kubectl get deployment -n stockpulse
-          echo ""
-          echo "Pod Status:"
+          Write-Host "═══════════════════════════════════════════════"
+          Write-Host "DEPLOYMENT VERIFICATION COMPLETE"
+          Write-Host "═══════════════════════════════════════════════"
+          Write-Host ""
+          Write-Host "Deployment Status:"
+          kubectl get deployments -n stockpulse
+          Write-Host ""
+          Write-Host "Pod Status:"
           kubectl get pods -n stockpulse -o wide
-          echo ""
-          echo "Service Status:"
-          kubectl get svc -n stockpulse
-          echo ""
-          echo "✅ Deployment verification completed"
+          Write-Host ""
+          Write-Host "Service Status:"
+          kubectl get services -n stockpulse
+          Write-Host ""
+          Write-Host "✅ Deployment verification completed"
 
   # ═══════════════════════════════════════════════════════════
   # JOB 7: NOTIFY STATUS
