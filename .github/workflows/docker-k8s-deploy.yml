@@ -13,6 +13,7 @@ on:
       - 'requirements.txt'
       - 'frontend/package.json'
       - 'deployment/**'
+      - 'monitoring/**'
       - '.github/workflows/docker-k8s-deploy.yml'
       - 'sonar-project.properties'
   pull_request:
@@ -638,6 +639,15 @@ jobs:
             echo "Attempt $i/10: Checking backend health..."
             if curl -s -f http://localhost:8000/health 2>/dev/null | grep -q "alive"; then
               echo "✅ Backend API is healthy!"
+              
+              # Optional: Verify Prometheus metrics are exposed
+              echo "Checking Prometheus metrics endpoint..."
+              if curl -s -f http://localhost:8000/metrics 2>/dev/null | grep -q "python_gc_"; then
+                echo "✅ Prometheus metrics endpoint is healthy!"
+              else
+                echo "⚠️ Prometheus metrics endpoint check failed or timed out"
+              fi
+              
               kill $PF_PID 2>/dev/null || true
               exit 0
             fi
