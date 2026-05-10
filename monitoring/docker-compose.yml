@@ -20,5 +20,22 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # Grafana service for visualization of metrics collected by Prometheus
+  # FastAPI (metrics) -> Prometheus (collector) -> Grafana (dashboard UI)
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    # Use extra_hosts to allow Grafana to reach the host machine on Docker Desktop
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   prometheus_data:
+  grafana_data:

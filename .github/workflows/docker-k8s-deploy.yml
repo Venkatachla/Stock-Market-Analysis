@@ -7,6 +7,7 @@ on:
       - devops/docker-k8s-cicd
       - copilot/resolve-merge-conflicts-git-action
       - fix-docker-k8s-pipeline
+      - grafana-dashboard
     paths:
       - 'api/**'
       - 'frontend/**'
@@ -276,13 +277,99 @@ jobs:
           cat backend.log || true
 
   # ═══════════════════════════════════════════════════════════
+  # JOB 2C: PROMETHEUS VERIFICATION
+  # ═══════════════════════════════════════════════════════════
+  prometheus-verification:
+    name: Prometheus Verification
+    runs-on: ubuntu-latest
+    needs: monitoring-verification
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start Monitoring Stack
+        run: |
+          docker compose -f monitoring/docker-compose.yml up -d
+          echo "Waiting for Prometheus to initialize..."
+          sleep 10
+
+      - name: Verify Prometheus Health
+        run: |
+          echo "Checking Prometheus health endpoint..."
+          for i in {1..10}; do
+            if curl -s -f http://localhost:9090/-/healthy; then
+              echo -e "\n✅ Prometheus is UP and healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "❌ Prometheus failed to start or health endpoint unreachable"
+          docker logs prometheus
+          exit 1
+
+      - name: Print Prometheus Container Status
+        run: |
+          docker ps --filter "name=prometheus"
+
+      - name: Stop Monitoring Stack
+        if: always()
+        run: |
+          docker compose -f monitoring/docker-compose.yml down
+
+  # ═══════════════════════════════════════════════════════════
+  # JOB 2D: GRAFANA VERIFICATION
+  # ═══════════════════════════════════════════════════════════
+  grafana-verification:
+    name: Grafana Verification
+    runs-on: ubuntu-latest
+    needs: prometheus-verification
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start Monitoring Stack
+        run: |
+          docker compose -f monitoring/docker-compose.yml up -d
+          echo "Waiting for Grafana to initialize..."
+          sleep 15
+
+      - name: Verify Grafana Health
+        run: |
+          echo "Checking Grafana health endpoint..."
+          for i in {1..15}; do
+            if curl -s -f http://localhost:3000/api/health; then
+              echo -e "\n✅ Grafana is UP and healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "❌ Grafana failed to start or health endpoint unreachable"
+          docker logs grafana
+          exit 1
+
+      - name: Print Grafana Container Status
+        run: |
+          docker ps --filter "name=grafana"
+
+      - name: Stop Monitoring Stack
+        if: always()
+        run: |
+          docker compose -f monitoring/docker-compose.yml down
+
+  # ═══════════════════════════════════════════════════════════
   # JOB 3: DOCKER BUILD
   # ═══════════════════════════════════════════════════════════
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
     needs: [build-test, sonarcloud-analysis]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline' || github.ref == 'refs/heads/grafana-dashboard')
     
     permissions:
       contents: read
@@ -323,7 +410,7 @@ jobs:
     name: Docker Push
     runs-on: ubuntu-latest
     needs: docker-build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline' || github.ref == 'refs/heads/grafana-dashboard')
     
     permissions:
       contents: read
