@@ -619,43 +619,18 @@ jobs:
           kubectl config view --minify
           kubectl cluster-info
 
-      - name: Verify pods status
+      - name: Verify Deployments
+        shell: powershell
         run: |
-          echo "=== Pod Status ==="
-          kubectl get pods -n stockpulse -o wide
-          echo ""
-          echo "Checking pod readiness..."
-          kubectl get pods -n stockpulse -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.status.conditions[?(@.type==""Ready"")].status}{"\n"}{end}'
+          kubectl get deployments -n stockpulse
+          kubectl get pods -n stockpulse
+          kubectl get services -n stockpulse
 
-      - name: Verify services
+      - name: Wait for Deployments
+        shell: powershell
         run: |
-          echo "=== Service Status ==="
-          kubectl get svc -n stockpulse
-          echo ""
-          echo "Checking service endpoints..."
-          kubectl get endpoints -n stockpulse
-
-      - name: Check backend rollout status
-        run: |
-          echo "=== Backend Deployment Rollout Status ==="
-          kubectl rollout status deployment/stockpulse-backend -n stockpulse --timeout=5m
-          if ($LASTEXITCODE -eq 0) {
-            echo "✅ Backend deployment rollout successful"
-          } else {
-            echo "❌ Backend deployment rollout failed"
-            exit 1
-          }
-
-      - name: Check frontend rollout status
-        run: |
-          echo "=== Frontend Deployment Rollout Status ==="
-          kubectl rollout status deployment/stockpulse-frontend -n stockpulse --timeout=5m
-          if ($LASTEXITCODE -eq 0) {
-            echo "✅ Frontend deployment rollout successful"
-          } else {
-            echo "❌ Frontend deployment rollout failed"
-            exit 1
-          }
+          kubectl rollout status deployment/stockpulse-backend -n stockpulse --timeout=180s
+          kubectl rollout status deployment/stockpulse-frontend -n stockpulse --timeout=180s
 
       - name: Verify backend replicas
         shell: powershell
@@ -705,7 +680,13 @@ jobs:
         shell: powershell
         run: |
           Write-Host "=== Backend Logs (last 50 lines) ==="
-          $backendLogs = kubectl logs deployment/stockpulse-backend --tail=50 -c backend --all-containers=true 2>$null
+
+          $backendLogs = kubectl logs deployment/stockpulse-backend `
+            -n stockpulse `
+            --tail=50 `
+            -c backend `
+            --all-containers=true 2>$null
+
           if ($LASTEXITCODE -eq 0) {
             Write-Host $backendLogs
           } else {
@@ -717,7 +698,13 @@ jobs:
         shell: powershell
         run: |
           Write-Host "=== Frontend Logs (last 50 lines) ==="
-          $frontendLogs = kubectl logs deployment/stockpulse-frontend --tail=50 -c frontend --all-containers=true 2>$null
+
+          $frontendLogs = kubectl logs deployment/stockpulse-frontend `
+            -n stockpulse `
+            --tail=50 `
+            -c frontend `
+            --all-containers=true 2>$null
+
           if ($LASTEXITCODE -eq 0) {
             Write-Host $frontendLogs
           } else {
