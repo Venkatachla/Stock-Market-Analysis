@@ -537,7 +537,14 @@ jobs:
           }
           Write-Host "Kubernetes deployment enabled: $ENABLE_KUBERNETES_DEPLOY"
 
+      - name: Debug Kubernetes Context
+        shell: powershell
+        run: |
+          kubectl config current-context
+          kubectl config view --minify
+
       - name: Verify Cluster
+        shell: powershell
         run: |
           kubectl cluster-info
           kubectl get nodes
@@ -614,10 +621,18 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$HOME\.kube"
           [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("${{ secrets.KUBE_CONFIG_DATA }}")) | Out-File "$HOME\.kube\config"
 
-      - name: Configure kubeconfig
+      - name: Debug Kubernetes Context
+        shell: powershell
         run: |
+          kubectl config current-context
           kubectl config view --minify
+
+      - name: Verify Cluster
+        shell: powershell
+        run: |
           kubectl cluster-info
+          kubectl get nodes
+          kubectl get pods -A
 
       - name: Verify Deployments
         shell: powershell
