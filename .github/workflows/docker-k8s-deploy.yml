@@ -585,12 +585,15 @@ jobs:
           try {
             Write-Host "Current context:"
             kubectl config current-context
+            if ($LASTEXITCODE -ne 0) { throw "kubectl config current-context failed" }
 
             Write-Host "Cluster info:"
             kubectl cluster-info
+            if ($LASTEXITCODE -ne 0) { throw "kubectl cluster-info failed" }
 
             Write-Host "Cluster nodes:"
             kubectl get nodes
+            if ($LASTEXITCODE -ne 0) { throw "kubectl get nodes failed" }
 
             Write-Host "kubeconfig validation succeeded"
           } catch {
@@ -615,8 +618,11 @@ jobs:
         shell: powershell
         run: |
           kubectl cluster-info
+          if ($LASTEXITCODE -ne 0) { throw "kubectl cluster-info failed" }
           kubectl get nodes
+          if ($LASTEXITCODE -ne 0) { throw "kubectl get nodes failed" }
           kubectl get pods -A
+          if ($LASTEXITCODE -ne 0) { throw "kubectl get pods -A failed" }
 
       - name: Create namespace
         run: |
@@ -736,12 +742,15 @@ jobs:
           try {
             Write-Host "Current context:"
             kubectl config current-context
+            if ($LASTEXITCODE -ne 0) { throw "kubectl config current-context failed" }
 
             Write-Host "Cluster info:"
             kubectl cluster-info
+            if ($LASTEXITCODE -ne 0) { throw "kubectl cluster-info failed" }
 
             Write-Host "Cluster nodes:"
             kubectl get nodes
+            if ($LASTEXITCODE -ne 0) { throw "kubectl get nodes failed" }
 
             Write-Host "kubeconfig validation succeeded"
           } catch {
@@ -766,8 +775,11 @@ jobs:
         shell: powershell
         run: |
           kubectl cluster-info
+          if ($LASTEXITCODE -ne 0) { throw "kubectl cluster-info failed" }
           kubectl get nodes
+          if ($LASTEXITCODE -ne 0) { throw "kubectl get nodes failed" }
           kubectl get pods -A
+          if ($LASTEXITCODE -ne 0) { throw "kubectl get pods -A failed" }
 
       - name: Verify Deployments
         shell: powershell
@@ -973,7 +985,9 @@ jobs:
           
           for ($i=1; $i -le $maxRetries; $i++) {
             Write-Host "Attempt $i/$maxRetries: Validating monitoring stack..."
-            $pods = kubectl get pods -A -o json | ConvertFrom-Json
+            $podsJson = kubectl get pods -A -o json
+            if ($LASTEXITCODE -ne 0) { Write-Host "kubectl failed to get pods"; continue }
+            $pods = $podsJson | ConvertFrom-Json
             $prometheus = $pods.items | Where-Object { $_.metadata.name -match "prometheus" }
             $grafana = $pods.items | Where-Object { $_.metadata.name -match "grafana" }
             
