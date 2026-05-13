@@ -55,10 +55,11 @@ export function generateMockOHLC(days = 250): OHLC[] {
   const data: OHLC[] = [];
   let price = 2400;
   const now = new Date();
+  const baseDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   for (let i = days; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
+    const date = new Date(baseDate);
+    date.setUTCDate(date.getUTCDate() - i);
+    if (date.getUTCDay() === 0 || date.getUTCDay() === 6) continue;
     const change = (Math.random() - 0.48) * 60;
     const open = price;
     const close = price + change;

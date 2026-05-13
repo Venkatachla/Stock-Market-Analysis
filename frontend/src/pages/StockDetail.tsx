@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { createChart, ColorType, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
 import { usePolling } from '@/hooks/usePolling';
-import { fetchStockDetail, fetchOHLC, fetchIndicators } from '@/services/api';
+import { fetchStockDetail } from '@/services/api';
 import TradingModal from '@/components/TradingModal';
-import { mockSignals, generateMockOHLC, generateMockIndicators } from '@/utils/mockData';
+import { generateMockOHLC, generateMockIndicators } from '@/utils/mockData';
 import { formatCurrency, formatPercent, formatLargeNumber } from '@/utils/format';
-import { LoadingState, SignalBadge, MetricCard } from '@/components/common/StatusComponents';
+import { SignalBadge, MetricCard } from '@/components/common/StatusComponents';
 import { ArrowLeft, TrendingUp, TrendingDown, BarChart3, Activity } from 'lucide-react';
-import type { StockSignal, OHLC, TechnicalIndicators } from '@/services/api';
+import type { StockSignal } from '@/services/api';
 
 const StockDetail: React.FC = () => {
   const { symbol } = useParams<{ symbol: string }>();

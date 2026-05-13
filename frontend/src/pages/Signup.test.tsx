@@ -2,13 +2,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import Signup from './Signup';
-import { AuthProvider } from '@/contexts/AuthContext';
 
 // Mock the AuthContext
 vi.mock('@/contexts/AuthContext', async () => {
-  const actual = await vi.importActual('@/contexts/AuthContext');
+  const actual = await vi.importActual<typeof import('@/contexts/AuthContext')>('@/contexts/AuthContext');
   return {
-    ...actual as any,
+    ...actual,
     useAuth: () => ({
       signup: vi.fn().mockResolvedValue({}),
       isAuthenticated: false,

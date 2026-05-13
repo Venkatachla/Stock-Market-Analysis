@@ -45,7 +45,7 @@ describe("generateMockOHLC", () => {
   it("skips weekends (no Saturday/Sunday)", () => {
     const data = generateMockOHLC(30);
     for (const entry of data) {
-      const day = new Date(entry.time).getDay();
+      const day = new Date(`${entry.time}T00:00:00Z`).getUTCDay();
       expect(day).not.toBe(0); // Sunday
       expect(day).not.toBe(6); // Saturday
     }

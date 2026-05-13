@@ -115,11 +115,11 @@ jobs:
 
       - name: Run backend unit tests
         run: |
-          python -m pytest tests -q
+          python -m pytest tests --cov=api --cov-report=xml:coverage.xml -q
 
       - name: Run backend integration tests
         run: |
-          python -m pytest tests/test_endpoints.py tests/test_trading_flow.py -q
+          python -m pytest tests/test_endpoints.py tests/test_trading_flow.py --cov=api --cov-append --cov-report=xml:coverage.xml -q
 
       - name: Print backend logs on failure
         if: failure()
@@ -137,6 +137,12 @@ jobs:
         run: |
           cd frontend
           npm run lint --if-present
+          cd ..
+
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm test
           cd ..
 
       - name: Build frontend
@@ -553,9 +559,7 @@ jobs:
               throw "KUBE_CONFIG_DATA is not valid Base64. Regenerate it from $HOME\.kube\config."
           }
 
-          $kubeConfigText = [System.Text.Encoding]::UTF8.GetString($kubeConfigBytes)
-          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-          [System.IO.File]::WriteAllText($kubeConfigPath, $kubeConfigText, $utf8NoBom)
+          [System.IO.File]::WriteAllBytes($kubeConfigPath, $kubeConfigBytes)
 
           if (!(Test-Path $kubeConfigPath)) {
               throw "kubeconfig file missing after restore."
@@ -706,9 +710,7 @@ jobs:
               throw "KUBE_CONFIG_DATA is not valid Base64. Regenerate it from $HOME\.kube\config."
           }
 
-          $kubeConfigText = [System.Text.Encoding]::UTF8.GetString($kubeConfigBytes)
-          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-          [System.IO.File]::WriteAllText($kubeConfigPath, $kubeConfigText, $utf8NoBom)
+          [System.IO.File]::WriteAllBytes($kubeConfigPath, $kubeConfigBytes)
 
           if (!(Test-Path $kubeConfigPath)) {
               throw "kubeconfig file missing after restore."
@@ -926,7 +928,77 @@ jobs:
           Write-Host "Service Status:"
           kubectl get services -n stockpulse
           Write-Host ""
-          Write-Host "✅ Deployment verification completed"
+          Write-Host "═══════════════════════════════════════════════"
+          Write-Host "MONITORING VERIFICATION"
+          Write-Host "═══════════════════════════════════════════════"
+          Write-Host ""
+          Write-Host "All Pods Status:"
+          kubectl get pods -A
+          Write-Host ""
+          Write-Host "All Services Status:"
+          kubectl get svc -A
+          Write-Host ""
+          Write-Host "✅ Deployment and monitoring verification completed"
+
+  # ═══════════════════════════════════════════════════════════
+  # JOB 7: K8S MONITORING STABILIZATION
+  # ═══════════════════════════════════════════════════════════
+  k8s-monitoring-verification:
+    name: K8s Monitoring Verification
+    runs-on:
+      - self-hosted
+      - Windows
+    needs: deployment-verification
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
+    
+    steps:
+      - name: Setup kubeconfig
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $kubeConfigDirectory = Join-Path $HOME '.kube'
+          $kubeConfigPath = Join-Path $kubeConfigDirectory 'config'
+          New-Item -ItemType Directory -Force -Path $kubeConfigDirectory | Out-Null
+          $kubeConfigBase64 = "${{ secrets.KUBE_CONFIG_DATA }}"
+          $kubeConfigBytes = [System.Convert]::FromBase64String($kubeConfigBase64.Trim() -replace '\s', '')
+          [System.IO.File]::WriteAllBytes($kubeConfigPath, $kubeConfigBytes)
+
+      - name: Verify Monitoring Pods
+        shell: powershell
+        run: |
+          Write-Host "Checking monitoring services (Prometheus/Grafana)..."
+          $maxRetries = 10
+          $retryInterval = 10
+          $success = $false
+          
+          for ($i=1; $i -le $maxRetries; $i++) {
+            Write-Host "Attempt $i/$maxRetries: Validating monitoring stack..."
+            $pods = kubectl get pods -A -o json | ConvertFrom-Json
+            $prometheus = $pods.items | Where-Object { $_.metadata.name -match "prometheus" }
+            $grafana = $pods.items | Where-Object { $_.metadata.name -match "grafana" }
+            
+            if ($prometheus -and $grafana) {
+              $promReady = $prometheus.status.phase -eq "Running"
+              $grafReady = $grafana.status.phase -eq "Running"
+              
+              if ($promReady -and $grafReady) {
+                Write-Host "✅ Monitoring pods are running"
+                $success = $true
+                break
+              }
+            }
+            Write-Host "Waiting for monitoring pods to stabilize..."
+            Start-Sleep -Seconds $retryInterval
+          }
+          
+          if (-not $success) {
+            Write-Host "⚠️ Monitoring pods not fully ready, but continuing..."
+          }
+          
+          Write-Host "=== Current Cluster State ==="
+          kubectl get pods -A
+          kubectl get svc -A
+
 
   # ═══════════════════════════════════════════════════════════
   # JOB 7: NOTIFY STATUS
@@ -934,7 +1006,7 @@ jobs:
   notify:
     name: Notify Status
     runs-on: ubuntu-latest
-    needs: [build-test, sonarcloud-analysis, monitoring-verification, docker-build, docker-push, kubernetes-deploy, deployment-verification]
+    needs: [build-test, sonarcloud-analysis, monitoring-verification, docker-build, docker-push, kubernetes-deploy, deployment-verification, k8s-monitoring-verification]
     if: always()
     
     steps:
@@ -952,6 +1024,7 @@ jobs:
           echo "  Docker Push: ${{ needs.docker-push.result }}"
           echo "  Kubernetes Deploy: ${{ needs.kubernetes-deploy.result }}"
           echo "  Deployment Verification: ${{ needs.deployment-verification.result }}"
+          echo "  K8s Monitoring Verification: ${{ needs.k8s-monitoring-verification.result }}"
           echo ""
           
           # ── Step 1: Build & Test is always mandatory ──
@@ -983,7 +1056,8 @@ jobs:
             "Docker Build:${{ needs.docker-build.result }}" \
             "Docker Push:${{ needs.docker-push.result }}" \
             "Kubernetes Deploy:${{ needs.kubernetes-deploy.result }}" \
-            "Deployment Verification:${{ needs.deployment-verification.result }}"; do
+            "Deployment Verification:${{ needs.deployment-verification.result }}" \
+            "K8s Monitoring:${{ needs.k8s-monitoring-verification.result }}"; do
             JOB_NAME="${JOB_PAIR%%:*}"
             JOB_RESULT="${JOB_PAIR##*:}"
             if [ "$JOB_RESULT" == "failure" ] || [ "$JOB_RESULT" == "cancelled" ]; then

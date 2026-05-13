@@ -3,7 +3,7 @@ import { useAppStore } from '@/stores/appStore';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  LayoutDashboard, Search, BarChart3, Shield, PieChart,
+  LayoutDashboard, Search, Shield, PieChart,
   Sun, Moon, Menu, X, TrendingUp, LogOut, User
 } from 'lucide-react';
 
@@ -14,7 +14,7 @@ const navItems = [
   { path: '/risk', label: 'Risk-OS', icon: Shield },
 ];
 
-const AppLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
+const AppLayout: React.FC = () => {
   const { theme, toggleTheme, sidebarOpen, toggleSidebar } = useAppStore();
   const { logout, user } = useAuth();
   const navigate = useNavigate();
