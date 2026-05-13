@@ -13,7 +13,7 @@ from functools import lru_cache
 from datetime import datetime
 from typing import List, Optional, Tuple
 import hashlib
-import secrets
+import random
 import logging
 
 import joblib
@@ -538,8 +538,10 @@ def top_bulls(limit: int = 20):
     # Sample implementation - return top symbols with simulated probabilities
     stocks = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).head(limit).copy()
     
-    # Generate secure random probabilities
-    probs = [70 + secrets.choice(range(31)) for _ in range(len(stocks))]
+    # Non-cryptographic random values used only for UI simulation/testing.
+    # No authentication, token generation, encryption, or security-sensitive
+    # functionality depends on these generated values.
+    probs = [70 + random.choice(range(31)) for _ in range(len(stocks))]
     stocks["prob"] = probs  # 70-100% up probability
     stocks["signal"] = "BUY"
     
@@ -554,7 +556,8 @@ def top_bears(limit: int = 20):
         return {"stocks": [], "total": 0}
     
     stocks = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).tail(limit).copy()
-    probs = [secrets.choice(range(31)) for _ in range(len(stocks))]
+    # Non-cryptographic random values used only for UI simulation/testing.
+    probs = [random.choice(range(31)) for _ in range(len(stocks))]
     stocks["prob"] = probs  # 0-30% up probability
     stocks["signal"] = "SELL"
     
@@ -570,9 +573,10 @@ def top_losers(limit: int = 20):
     
     stocks = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).sample(min(limit, len(catalog))).copy()
     
-    # Generate secure random pct changes
-    sys_random = secrets.SystemRandom()
-    change_pcts = [-sys_random.random() * 10 for _ in range(len(stocks))]
+    # Non-cryptographic random values used only for UI simulation/testing.
+    # No authentication, token generation, encryption, or security-sensitive
+    # functionality depends on these generated values.
+    change_pcts = [-random.uniform(0, 10) for _ in range(len(stocks))]
     stocks["change_pct"] = change_pcts  # -0 to -10% change
     
     return {"stocks": stocks.to_dict("records"), "total": len(stocks)}
@@ -587,10 +591,11 @@ def scanner_results():
     
     top_count = min(10, len(catalog))
     bulls = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).head(top_count).copy()
-    bulls["prob"] = [75 + secrets.choice(range(26)) for _ in range(len(bulls))]
+    # Non-cryptographic random values used only for UI simulation/testing.
+    bulls["prob"] = [75 + random.choice(range(26)) for _ in range(len(bulls))]
     
     bears = catalog[["symbol", "name"]].drop_duplicates(subset=["symbol"]).tail(top_count).copy()
-    bears["prob"] = [20 + secrets.choice(range(21)) for _ in range(len(bears))]
+    bears["prob"] = [20 + random.choice(range(21)) for _ in range(len(bears))]
     
     return {
         "bulls": bulls.to_dict("records"),
@@ -625,14 +630,14 @@ def live_alerts(timeframe: str = "1d", min_confidence: int = 75, limit: int = 5)
         return {"alerts": []}
     
     alerts = []
-    sys_random = secrets.SystemRandom()
+    # Non-cryptographic random values used only for UI simulation/testing.
     for i in range(limit):
         symbol = catalog.iloc[i * 5 % len(catalog)]["symbol"]
         alerts.append({
             "symbol": symbol,
             "signal": "BUY" if i % 2 == 0 else "SELL",
-            "confidence": min_confidence + secrets.choice(range(26)),
-            "price": 100 + sys_random.random() * 50,
+            "confidence": min_confidence + random.choice(range(26)),
+            "price": 100 + random.uniform(0, 50),
             "time": datetime.utcnow().isoformat()
         })
     

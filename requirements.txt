@@ -62,3 +62,11 @@ vaderSentiment==3.3.2
 # =========================
 
 yfinance==0.2.40
+
+# =========================
+# Testing
+# =========================
+pytest
+pytest-cov
+pytest-asyncio
+httpx
