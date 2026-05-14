@@ -568,20 +568,22 @@ jobs:
           Write-Host "kubeconfig restored at: $kubeConfigPath"
           Write-Host "kubeconfig size: $((Get-Item $kubeConfigPath).Length) bytes"
 
-      - name: Validate kubeconfig (Lightweight)
+      - name: Validate kubeconfig
         shell: powershell
         run: |
-          Write-Host "Checking kubectl version..."
-          kubectl version --client
+          $ErrorActionPreference = 'Stop'
+          Write-Host "Validating kubeconfig..."
           
-          Write-Host "Attempting cluster connectivity check..."
-          kubectl cluster-info 2>$null
+          kubectl config current-context
+          if ($LASTEXITCODE -ne 0) { throw "Invalid kubeconfig: current-context failed" }
           
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "⚠️ Cluster validation failed or cluster unreachable, but continuing..."
-          } else {
-              Write-Host "✅ Cluster is reachable"
-          }
+          kubectl cluster-info
+          if ($LASTEXITCODE -ne 0) { throw "Cluster unreachable: cluster-info failed" }
+          
+          kubectl get nodes
+          if ($LASTEXITCODE -ne 0) { throw "kubectl get nodes failed" }
+          
+          Write-Host "✅ Kubeconfig validation succeeded"
       - name: Debug Kubernetes Context
         shell: powershell
         run: |
@@ -699,20 +701,22 @@ jobs:
           Write-Host "kubeconfig restored at: $kubeConfigPath"
           Write-Host "kubeconfig size: $((Get-Item $kubeConfigPath).Length) bytes"
 
-      - name: Validate kubeconfig (Lightweight)
+      - name: Validate kubeconfig
         shell: powershell
         run: |
-          Write-Host "Checking kubectl version..."
-          kubectl version --client
+          $ErrorActionPreference = 'Stop'
+          Write-Host "Validating kubeconfig..."
           
-          Write-Host "Attempting cluster connectivity check..."
-          kubectl cluster-info 2>$null
+          kubectl config current-context
+          if ($LASTEXITCODE -ne 0) { throw "Invalid kubeconfig: current-context failed" }
           
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "⚠️ Cluster validation failed or cluster unreachable, but continuing verification..."
-          } else {
-              Write-Host "✅ Cluster is reachable"
-          }
+          kubectl cluster-info
+          if ($LASTEXITCODE -ne 0) { throw "Cluster unreachable: cluster-info failed" }
+          
+          kubectl get nodes
+          if ($LASTEXITCODE -ne 0) { throw "kubectl get nodes failed" }
+          
+          Write-Host "✅ Kubeconfig validation succeeded"
 
       - name: Debug Kubernetes Context
         shell: powershell
