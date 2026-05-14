@@ -565,8 +565,8 @@ jobs:
               throw "kubeconfig file missing after restore."
           }
 
-          Write-Host "kubeconfig restored at: $kubeConfigPath"
-          Write-Host "kubeconfig size: $((Get-Item $kubeConfigPath).Length) bytes"
+          Write-Host ("kubeconfig restored at: {0}" -f $kubeConfigPath)
+          Write-Host ("kubeconfig size: {0} bytes" -f (Get-Item $kubeConfigPath).Length)
 
       - name: Validate kubeconfig
         shell: powershell
@@ -743,8 +743,8 @@ jobs:
               throw "kubeconfig file missing after restore."
           }
 
-          Write-Host "kubeconfig restored at: $kubeConfigPath"
-          Write-Host "kubeconfig size: $((Get-Item $kubeConfigPath).Length) bytes"
+          Write-Host ("kubeconfig restored at: {0}" -f $kubeConfigPath)
+          Write-Host ("kubeconfig size: {0} bytes" -f (Get-Item $kubeConfigPath).Length)
 
       - name: Validate kubeconfig
         shell: powershell
@@ -812,12 +812,12 @@ jobs:
           $maxRetries = 5
           $success = $false
           for ($i=1; $i -le $maxRetries; $i++) {
-            Write-Host "Attempt $i/$maxRetries: Checking backend replicas..."
+            Write-Host ("Attempt {0}/{1}: Checking backend replicas..." -f $i, $maxRetries)
             $BACKEND_READY = (kubectl get deployment -n stockpulse stockpulse-backend -o jsonpath='{.status.readyReplicas}' 2>$null)
             if ([string]::IsNullOrWhiteSpace($BACKEND_READY)) { $BACKEND_READY = "0" }
             $BACKEND_DESIRED = (kubectl get deployment -n stockpulse stockpulse-backend -o jsonpath='{.spec.replicas}' 2>$null)
             if ([string]::IsNullOrWhiteSpace($BACKEND_DESIRED)) { $BACKEND_DESIRED = "3" }
-            Write-Host "Backend Ready Replicas: $BACKEND_READY/$BACKEND_DESIRED"
+            Write-Host ("Backend Ready Replicas: {0}/{1}" -f $BACKEND_READY, $BACKEND_DESIRED)
             if ($BACKEND_READY -eq $BACKEND_DESIRED) {
               Write-Host "✅ Backend pods are ready"
               $success = $true
@@ -836,12 +836,12 @@ jobs:
           $maxRetries = 5
           $success = $false
           for ($i=1; $i -le $maxRetries; $i++) {
-            Write-Host "Attempt $i/$maxRetries: Checking frontend replicas..."
+            Write-Host ("Attempt {0}/{1}: Checking frontend replicas..." -f $i, $maxRetries)
             $FRONTEND_READY = (kubectl get deployment -n stockpulse stockpulse-frontend -o jsonpath='{.status.readyReplicas}' 2>$null)
             if ([string]::IsNullOrWhiteSpace($FRONTEND_READY)) { $FRONTEND_READY = "0" }
             $FRONTEND_DESIRED = (kubectl get deployment -n stockpulse stockpulse-frontend -o jsonpath='{.spec.replicas}' 2>$null)
             if ([string]::IsNullOrWhiteSpace($FRONTEND_DESIRED)) { $FRONTEND_DESIRED = "2" }
-            Write-Host "Frontend Ready Replicas: $FRONTEND_READY/$FRONTEND_DESIRED"
+            Write-Host ("Frontend Ready Replicas: {0}/{1}" -f $FRONTEND_READY, $FRONTEND_DESIRED)
             if ($FRONTEND_READY -eq $FRONTEND_DESIRED) {
               Write-Host "✅ Frontend pods are ready"
               $success = $true
@@ -889,7 +889,7 @@ jobs:
           
           $healthy = $false
           for ($i=1; $i -le 10; $i++) {
-              Write-Host "Attempt $i/10: Checking backend health..."
+              Write-Host ("Attempt {0}/10: Checking backend health..." -f $i)
               try {
                   $response = Invoke-RestMethod -Uri "http://localhost:8000/health" -Method Get -ErrorAction Stop
                   if (($response | ConvertTo-Json -Depth 5) -match "alive" -or $response.status -eq "ok") {
@@ -933,7 +933,7 @@ jobs:
           
           $healthy = $false
           for ($i=1; $i -le 10; $i++) {
-              Write-Host "Attempt $i/10: Checking frontend health..."
+              Write-Host ("Attempt {0}/10: Checking frontend health..." -f $i)
               try {
                   $response = Invoke-RestMethod -Uri "http://localhost:8080/health" -Method Get -ErrorAction Stop
                   Write-Host "✅ Frontend is healthy!"
@@ -1034,7 +1034,7 @@ jobs:
           kubectl cluster-info 2>$null
           if ($LASTEXITCODE -eq 0) {
             for ($i=1; $i -le $maxRetries; $i++) {
-              Write-Host "Attempt $i/$maxRetries: Validating monitoring stack..."
+              Write-Host ("Attempt {0}/{1}: Validating monitoring stack..." -f $i, $maxRetries)
               $podsJson = kubectl get pods -A -o json
               if ($LASTEXITCODE -ne 0) { Write-Host "kubectl failed to get pods"; continue }
               $pods = $podsJson | ConvertFrom-Json
