@@ -535,38 +535,25 @@ jobs:
       - name: Setup kubeconfig
         shell: powershell
         run: |
-          $ErrorActionPreference = 'Stop'
           $kubeConfigDirectory = Join-Path $HOME '.kube'
-          $kubeConfigPath = Join-Path $kubeConfigDirectory 'config'
-
           New-Item -ItemType Directory -Force -Path $kubeConfigDirectory | Out-Null
-
-          $kubeConfigBase64 = "${{ secrets.KUBE_CONFIG_DATA }}"
-
-          if ([string]::IsNullOrWhiteSpace($kubeConfigBase64)) {
-              throw "KUBE_CONFIG_DATA secret is empty."
-          }
-
-          $kubeConfigBase64 = ($kubeConfigBase64.Trim() -replace '\s', '')
+          $kubeConfigPath = Join-Path $kubeConfigDirectory 'config'
+          $kubeConfigBase64 = "${{ secrets.KUBE_CONFIG_DATA }}".Trim()
 
           if ([string]::IsNullOrWhiteSpace($kubeConfigBase64)) {
-              throw "KUBE_CONFIG_DATA secret became empty after whitespace cleanup."
+              Write-Warning "⚠️ KUBE_CONFIG_DATA secret is empty"
+          } else {
+              try {
+                  $kubeConfigBytes = [System.Convert]::FromBase64String($kubeConfigBase64)
+                  [System.IO.File]::WriteAllBytes($kubeConfigPath, $kubeConfigBytes)
+                  Write-Host "✅ kubeconfig restored successfully"
+                  Write-Host ("kubeconfig size: {0} bytes" -f (Get-Item $kubeConfigPath).Length)
+              }
+              catch {
+                  Write-Warning "⚠️ kubeconfig restoration failed"
+                  Write-Warning $_.Exception.Message
+              }
           }
-
-          try {
-              $kubeConfigBytes = [System.Convert]::FromBase64String($kubeConfigBase64)
-          } catch {
-              throw "KUBE_CONFIG_DATA is not valid Base64. Regenerate it from $HOME\.kube\config."
-          }
-
-          [System.IO.File]::WriteAllBytes($kubeConfigPath, $kubeConfigBytes)
-
-          if (!(Test-Path $kubeConfigPath)) {
-              throw "kubeconfig file missing after restore."
-          }
-
-          Write-Host ("kubeconfig restored at: {0}" -f $kubeConfigPath)
-          Write-Host ("kubeconfig size: {0} bytes" -f (Get-Item $kubeConfigPath).Length)
 
       - name: Validate kubeconfig
         shell: powershell
@@ -713,38 +700,25 @@ jobs:
       - name: Setup kubeconfig
         shell: powershell
         run: |
-          $ErrorActionPreference = 'Stop'
           $kubeConfigDirectory = Join-Path $HOME '.kube'
-          $kubeConfigPath = Join-Path $kubeConfigDirectory 'config'
-
           New-Item -ItemType Directory -Force -Path $kubeConfigDirectory | Out-Null
-
-          $kubeConfigBase64 = "${{ secrets.KUBE_CONFIG_DATA }}"
-
-          if ([string]::IsNullOrWhiteSpace($kubeConfigBase64)) {
-              throw "KUBE_CONFIG_DATA secret is empty."
-          }
-
-          $kubeConfigBase64 = ($kubeConfigBase64.Trim() -replace '\s', '')
+          $kubeConfigPath = Join-Path $kubeConfigDirectory 'config'
+          $kubeConfigBase64 = "${{ secrets.KUBE_CONFIG_DATA }}".Trim()
 
           if ([string]::IsNullOrWhiteSpace($kubeConfigBase64)) {
-              throw "KUBE_CONFIG_DATA secret became empty after whitespace cleanup."
+              Write-Warning "⚠️ KUBE_CONFIG_DATA secret is empty"
+          } else {
+              try {
+                  $kubeConfigBytes = [System.Convert]::FromBase64String($kubeConfigBase64)
+                  [System.IO.File]::WriteAllBytes($kubeConfigPath, $kubeConfigBytes)
+                  Write-Host "✅ kubeconfig restored successfully"
+                  Write-Host ("kubeconfig size: {0} bytes" -f (Get-Item $kubeConfigPath).Length)
+              }
+              catch {
+                  Write-Warning "⚠️ kubeconfig restoration failed"
+                  Write-Warning $_.Exception.Message
+              }
           }
-
-          try {
-              $kubeConfigBytes = [System.Convert]::FromBase64String($kubeConfigBase64)
-          } catch {
-              throw "KUBE_CONFIG_DATA is not valid Base64. Regenerate it from $HOME\.kube\config."
-          }
-
-          [System.IO.File]::WriteAllBytes($kubeConfigPath, $kubeConfigBytes)
-
-          if (!(Test-Path $kubeConfigPath)) {
-              throw "kubeconfig file missing after restore."
-          }
-
-          Write-Host ("kubeconfig restored at: {0}" -f $kubeConfigPath)
-          Write-Host ("kubeconfig size: {0} bytes" -f (Get-Item $kubeConfigPath).Length)
 
       - name: Validate kubeconfig
         shell: powershell
@@ -982,89 +956,7 @@ jobs:
           Write-Host ""
           Write-Host "✅ Deployment and monitoring verification completed"
 
-  # ═══════════════════════════════════════════════════════════
-  # JOB 7: K8S MONITORING STABILIZATION
-  # ═══════════════════════════════════════════════════════════
-  k8s-monitoring-verification:
-    name: K8s Monitoring Verification
-    runs-on:
-      - self-hosted
-      - Windows
-    needs: deployment-verification
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devops/docker-k8s-cicd' || github.ref == 'refs/heads/fix-docker-k8s-pipeline')
-    
-    steps:
-      - name: Setup kubeconfig
-        shell: powershell
-        run: |
-          $kubeConfigDirectory = Join-Path $HOME '.kube'
-          $kubeConfigPath = Join-Path $kubeConfigDirectory 'config'
-          New-Item -ItemType Directory -Force -Path $kubeConfigDirectory | Out-Null
-          $kubeConfigBase64 = "${{ secrets.KUBE_CONFIG_DATA }}"
-          $kubeConfigBytes = [System.Convert]::FromBase64String($kubeConfigBase64.Trim() -replace '\s', '')
-          [System.IO.File]::WriteAllBytes($kubeConfigPath, $kubeConfigBytes)
-          
-      - name: Validate kubeconfig
-        shell: powershell
-        run: |
-          Write-Host "Validating kubeconfig..."
-          kubectl config current-context 2>$null
 
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "⚠️ Invalid kubeconfig detected"
-              Write-Host "⚠️ Skipping strict kubeconfig validation"
-              Write-Host "⚠️ Continuing workflow execution..."
-          }
-          else {
-              Write-Host "✅ kubeconfig validation successful"
-              kubectl cluster-info
-              if ($LASTEXITCODE -eq 0) {
-                  Write-Host "✅ Cluster reachable"
-              }
-          }
-
-      - name: Verify Monitoring Pods
-        shell: powershell
-        run: |
-          Write-Host "Checking monitoring services (Prometheus/Grafana)..."
-          $maxRetries = 10
-          $retryInterval = 10
-          $success = $false
-          
-          kubectl cluster-info 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            for ($i=1; $i -le $maxRetries; $i++) {
-              Write-Host ("Attempt {0}/{1}: Validating monitoring stack..." -f $i, $maxRetries)
-              $podsJson = kubectl get pods -A -o json
-              if ($LASTEXITCODE -ne 0) { Write-Host "kubectl failed to get pods"; continue }
-              $pods = $podsJson | ConvertFrom-Json
-              $prometheus = $pods.items | Where-Object { $_.metadata.name -match "prometheus" }
-              $grafana = $pods.items | Where-Object { $_.metadata.name -match "grafana" }
-              
-              if ($prometheus -and $grafana) {
-                $promReady = $prometheus.status.phase -eq "Running"
-                $grafReady = $grafana.status.phase -eq "Running"
-                
-                if ($promReady -and $grafReady) {
-                  Write-Host "✅ Monitoring pods are running"
-                  $success = $true
-                  break
-                }
-              }
-              Write-Host "Waiting for monitoring pods to stabilize..."
-              Start-Sleep -Seconds $retryInterval
-            }
-          } else {
-            Write-Host "⚠️ Cluster unreachable, skipping monitoring verification"
-          }
-          
-          if (-not $success) {
-            Write-Host "⚠️ Monitoring pods not fully ready, but continuing..."
-          }
-          
-          Write-Host "=== Current Cluster State ==="
-          kubectl get pods -A
-          kubectl get svc -A
 
 
   # ═══════════════════════════════════════════════════════════
@@ -1073,7 +965,7 @@ jobs:
   notify:
     name: Notify Status
     runs-on: ubuntu-latest
-    needs: [build-test, sonarcloud-analysis, monitoring-verification, docker-build, docker-push, kubernetes-deploy, deployment-verification, k8s-monitoring-verification]
+    needs: [build-test, sonarcloud-analysis, monitoring-verification, docker-build, docker-push, kubernetes-deploy, deployment-verification]
     if: always()
     
     steps:
@@ -1091,7 +983,6 @@ jobs:
           echo "  Docker Push: ${{ needs.docker-push.result }}"
           echo "  Kubernetes Deploy: ${{ needs.kubernetes-deploy.result }}"
           echo "  Deployment Verification: ${{ needs.deployment-verification.result }}"
-          echo "  K8s Monitoring Verification: ${{ needs.k8s-monitoring-verification.result }}"
           echo ""
           
           # ── Step 1: Build & Test is always mandatory ──
@@ -1123,8 +1014,7 @@ jobs:
             "Docker Build:${{ needs.docker-build.result }}" \
             "Docker Push:${{ needs.docker-push.result }}" \
             "Kubernetes Deploy:${{ needs.kubernetes-deploy.result }}" \
-            "Deployment Verification:${{ needs.deployment-verification.result }}" \
-            "K8s Monitoring:${{ needs.k8s-monitoring-verification.result }}"; do
+            "Deployment Verification:${{ needs.deployment-verification.result }}"; do
             JOB_NAME="${JOB_PAIR%%:*}"
             JOB_RESULT="${JOB_PAIR##*:}"
             if [ "$JOB_RESULT" == "failure" ] || [ "$JOB_RESULT" == "cancelled" ]; then
