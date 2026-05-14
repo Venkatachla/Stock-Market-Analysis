@@ -657,8 +657,16 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             echo "Restarting backend deployment..."
             kubectl rollout restart deployment/stockpulse-backend -n stockpulse
-            echo "Waiting for backend rollout..."
-            kubectl rollout status deployment/stockpulse-backend -n stockpulse --timeout=5m
+            echo "Waiting for backend rollout (timeout 600s)..."
+            kubectl rollout status deployment/stockpulse-backend -n stockpulse --timeout=600s
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "❌ Backend rollout failed. Collecting diagnostics..."
+                kubectl get pods -n stockpulse -o wide
+                kubectl describe pods -n stockpulse -l app=stockpulse-backend
+                kubectl logs deployment/stockpulse-backend -n stockpulse --tail=100
+                kubectl get events -n stockpulse --sort-by='.lastTimestamp' | Select-Object -Last 10
+                exit 1
+            }
             echo "✅ Backend deployment restarted"
           } else {
             Write-Host "⚠️ Cluster unreachable, skipping backend rollout"
@@ -670,8 +678,16 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             echo "Restarting frontend deployment..."
             kubectl rollout restart deployment/stockpulse-frontend -n stockpulse
-            echo "Waiting for frontend rollout..."
-            kubectl rollout status deployment/stockpulse-frontend -n stockpulse --timeout=5m
+            echo "Waiting for frontend rollout (timeout 600s)..."
+            kubectl rollout status deployment/stockpulse-frontend -n stockpulse --timeout=600s
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "❌ Frontend rollout failed. Collecting diagnostics..."
+                kubectl get pods -n stockpulse -o wide
+                kubectl describe pods -n stockpulse -l app=stockpulse-frontend
+                kubectl logs deployment/stockpulse-frontend -n stockpulse --tail=100
+                kubectl get events -n stockpulse --sort-by='.lastTimestamp' | Select-Object -Last 10
+                exit 1
+            }
             echo "✅ Frontend deployment restarted"
           } else {
             Write-Host "⚠️ Cluster unreachable, skipping frontend rollout"
@@ -783,8 +799,8 @@ jobs:
         run: |
           kubectl cluster-info 2>$null
           if ($LASTEXITCODE -eq 0) {
-            kubectl rollout status deployment/stockpulse-backend -n stockpulse --timeout=180s
-            kubectl rollout status deployment/stockpulse-frontend -n stockpulse --timeout=180s
+            kubectl rollout status deployment/stockpulse-backend -n stockpulse --timeout=600s
+            kubectl rollout status deployment/stockpulse-frontend -n stockpulse --timeout=600s
           } else {
             Write-Host "⚠️ Cluster unreachable, skipping rollout status wait"
           }
