@@ -1,17 +1,18 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Portfolio from '@/pages/Portfolio';
 import * as api from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mock dependencies
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ token: 'mock-token' })
+  useAuth: vi.fn()
 }));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ children, to }: any) => <a href={to}>{children}</a>
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => <a href={to}>{children}</a>
 }));
 
 const queryClient = new QueryClient({
@@ -24,18 +25,18 @@ describe('Portfolio Component', () => {
   });
 
   it('renders "Please log in" when no token is present', () => {
-    // Override the mock just for this test
-    vi.doMock('@/contexts/AuthContext', () => ({
-      useAuth: () => ({ token: null })
-    }));
-    
-    // We need to re-import the component since the mock changed
-    vi.resetModules();
-    const PortfolioNoAuth = require('@/pages/Portfolio').default;
+    vi.mocked(useAuth).mockReturnValue({
+      token: null,
+      user: null,
+      login: vi.fn(),
+      signup: vi.fn(),
+      logout: vi.fn(),
+      refreshToken: vi.fn()
+    });
     
     render(
       <QueryClientProvider client={queryClient}>
-        <PortfolioNoAuth />
+        <Portfolio />
       </QueryClientProvider>
     );
     
@@ -43,11 +44,14 @@ describe('Portfolio Component', () => {
   });
 
   it('renders portfolio dashboard with wallet data', async () => {
-    vi.doMock('@/contexts/AuthContext', () => ({
-      useAuth: () => ({ token: 'mock-token' })
-    }));
-    vi.resetModules();
-    const PortfolioComponent = require('@/pages/Portfolio').default;
+    vi.mocked(useAuth).mockReturnValue({
+      token: 'mock-token',
+      user: null,
+      login: vi.fn(),
+      signup: vi.fn(),
+      logout: vi.fn(),
+      refreshToken: vi.fn()
+    });
 
     // Mock API responses
     vi.spyOn(api, 'getWallet').mockResolvedValue({
@@ -82,7 +86,7 @@ describe('Portfolio Component', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <PortfolioComponent />
+        <Portfolio />
       </QueryClientProvider>
     );
 
