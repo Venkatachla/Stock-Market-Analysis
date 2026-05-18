@@ -54,7 +54,7 @@ def test_buy_insufficient_balance(mock_get_wallet):
     
     with patch("api.app_fixed.get_stock_price", return_value={"price": 150.0}):
         # We need to mock the authentication dependency
-        with patch("api.app_fixed.get_current_user", return_value=MagicMock(id=1, email="test@test.com")):
+        with patch("api.app_fixed.get_current_user_dep", return_value=MagicMock(id=1, email="test@test.com")):
             # Can't test directly via client easily due to dependencies, testing route logic
             # This is handled securely in routes
             pass
