@@ -631,7 +631,15 @@ jobs:
         shell: powershell
         run: |
           docker build -t stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
-          kind load docker-image stockpulse-backend:latest --name docker-desktop 2>$null || Write-Host "Using Docker Desktop k8s directly"
+          
+          kind load docker-image stockpulse-backend:latest --name docker-desktop 2>$null
+          
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "⚠️ kind image load skipped"
+          }
+          else {
+              Write-Host "✅ Image loaded into Kubernetes cluster"
+          }
 
 
       - name: Deploy to Kubernetes
