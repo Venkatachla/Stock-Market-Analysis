@@ -627,20 +627,10 @@ jobs:
           kubectl apply -f deployment/kubernetes/secret.yaml -n stockpulse
           echo "✅ Secrets applied"
 
-      - name: Load local Docker image into Kubernetes
+      - name: Build local Docker image for Kubernetes
         shell: powershell
         run: |
           docker build -t stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
-          
-          kind load docker-image stockpulse-backend:latest --name docker-desktop 2>$null
-          
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "⚠️ kind image load skipped"
-          }
-          else {
-              Write-Host "✅ Image loaded into Kubernetes cluster"
-          }
-
 
       - name: Deploy to Kubernetes
         run: |
