@@ -274,8 +274,11 @@ async def login(user: UserLogin, db = Depends(get_db)):
             "tier": getattr(db_user, "tier", "free"),
             "is_admin": bool(getattr(db_user, "is_admin", False))
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Login error: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred. Please try again later.")
 
 @app.get("/api/auth/me")
 async def get_me(authorization: Optional[str] = Header(None), db = Depends(get_db)):
@@ -305,6 +308,17 @@ async def get_active_signals():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/predict/FIXED/{symbol}")
+async def get_prediction_fixed(symbol: str):
+    from api.prediction_fixed import predict_single_FIXED
+    result = predict_single_FIXED(symbol)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Could not predict for {symbol}"
+        )
+    return result
 
 @app.post("/api/prompt")
 async def handle_prompt(data: PromptQuery):
