@@ -1,0 +1,579 @@
+Stock-Market-Analysis/
+├── .coverage
+├── .coveragerc
+├── .dockerignore
+├── .env
+├── .gitignore
+├── GITHUB_PR_INSTRUCTIONS.md
+├── MIGRATION_GUIDE.md
+├── SECURITY_AUDIT_REPORT.md
+├── SECURITY_CHECKLIST.md
+├── SECURITY_DEPLOYMENT_GUIDE.md
+├── SECURITY_FIX_COMPLETION_REPORT.md
+├── api
+│   ├── __init__.py
+│   ├── app_fixed.py
+│   ├── auth.py
+│   ├── core
+│   │   └── config.py
+│   ├── db_utils.py
+│   ├── models.py
+│   ├── prediction_fixed.py
+│   ├── production.py
+│   ├── razorpay_integration.py
+│   ├── routes.py
+│   ├── server.py
+│   └── services
+│       ├── external_apis.py
+│       ├── model_loader.py
+│       └── predictor.py
+├── backtest
+│   ├── __init__.py
+│   ├── combined_portfolio_report.json
+│   ├── dual_engine_alpha.py
+│   ├── engine.py
+│   ├── intraday_alpha_report.json
+│   ├── intraday_alpha_trades.csv
+│   ├── professional.py
+│   ├── swing_best_stocks.csv
+│   ├── swing_stock_summary.csv
+│   ├── swing_validation_report.json
+│   ├── swing_validator.py
+│   └── swing_validator_fast.py
+├── btlogic
+│   ├── __init__.py
+│   ├── report.json
+│   └── runner.py
+├── data
+│   ├── Grow-Stocks.csv
+│   ├── __init__.py
+│   ├── downloader.py
+│   ├── multi_timeframe.py
+│   ├── nse_symbols.csv
+│   ├── platform.db
+│   ├── processed
+│   │   ├── 20MICRONS.csv
+│   │   ├── 21STCENMGM.csv
+│   │   ├── 360ONE.csv
+│   │   ├── 3IINFOLTD.csv
+│   │   ├── 3MINDIA.csv
+│   │   ├── 3PLAND.csv
+│   │   ├── 5PAISA.csv
+│   │   ├── 63MOONS.csv
+│   │   ├── A2ZINFRA.csv
+│   │   ├── AAATECH.csv
+│   │   ├── AADHARHFC.csv
+│   │   ├── AAKASH.csv
+│   │   ├── AAREYDRUGS.csv
+│   │   ├── AARON.csv
+│   │   ├── AARTECH.csv
+│   │   ├── AARTIDRUGS.csv
+│   │   ├── AARTIIND.csv
+│   │   ├── AARTIPHARM.csv
+│   │   ├── AARTISURF.csv
+│   │   ├── AARVI.csv
+│   │   ├── AAVAS.csv
+│   │   ├── ABB.csv
+│   │   ├── ABBOTINDIA.csv
+│   │   ├── ABCAPITAL.csv
+│   │   ├── ABCOTS.csv
+│   │   ├── ABDL.csv
+│   │   ├── ABFRL.csv
+│   │   ├── ABINFRA.csv
+│   │   ├── ABLBL.csv
+│   │   ├── ABMINTLLTD.csv
+│   │   ├── ABREL.csv
+│   │   ├── ABSLAMC.csv
+│   │   ├── ACC.csv
+│   │   ├── ACCELYA.csv
+│   │   ├── ACCURACY.csv
+│   │   ├── ACE.csv
+│   │   ├── ACEINTEG.csv
+│   │   ├── ACI.csv
+│   │   ├── ACL.csv
+│   │   ├── ACMESOLAR.csv
+│   │   ├── ACUTAAS.csv
+│   │   ├── ADANIENSOL.csv
+│   │   ├── ADANIENT.csv
+│   │   ├── ADANIGREEN.csv
+│   │   ├── ADANIPORTS.csv
+│   │   ├── ADANIPOWER.csv
+│   │   ├── ADFFOODS.csv
+│   │   ├── ADL.csv
+│   │   ├── ADOR.csv
+│   │   ├── ADROITINFO.csv
+│   │   ├── ADSL.csv
+│   │   ├── ADVANCE.csv
+│   │   ├── ADVANIHOTR.csv
+│   │   ├── ADVENTHTL.csv
+│   │   ├── ADVENZYMES.csv
+│   │   ├── AEGISLOG.csv
+│   │   ├── AEGISVOPAK.csv
+│   │   ├── AEQUS.csv
+│   │   ├── AEROENTER.csv
+│   │   ├── AEROFLEX.csv
+│   │   ├── AERONEU.csv
+│   │   ├── AETHER.csv
+│   │   ├── AFCONS.csv
+│   │   ├── AFFLE.csv
+│   │   ├── AFFORDABLE.csv
+│   │   ├── AFIL.csv
+│   │   ├── AFSL.csv
+│   │   ├── AGARIND.csv
+│   │   ├── AGARWALEYE.csv
+│   │   ├── AGI.csv
+│   │   ├── AGIIL.csv
+│   │   ├── AGRITECH.csv
+│   │   ├── AGROPHOS.csv
+│   │   ├── AGSTRA.csv
+│   │   ├── AHCL.csv
+│   │   ├── AHLADA.csv
+│   │   ├── AHLEAST.csv
+│   │   ├── AHLUCONT.csv
+│   │   ├── AIAENG.csv
+│   │   ├── AIIL.csv
+│   │   ├── AIRAN.csv
+│   │   ├── AIROLAM.csv
+│   │   ├── AJANTPHARM.csv
+│   │   ├── AJAXENGG.csv
+│   │   ├── AJMERA.csv
+│   │   ├── AJOONI.csv
+│   │   ├── AKASH.csv
+│   │   ├── AKG.csv
+│   │   ├── AKI.csv
+│   │   ├── AKSHAR.csv
+│   │   ├── AKSHARCHEM.csv
+│   │   ├── AKSHOPTFBR.csv
+│   │   ├── AKUMS.csv
+│   │   ├── AKZOINDIA.csv
+│   │   ├── ALANKIT.csv
+│   │   ├── ALBERTDAVD.csv
+│   │   ├── ALEMBICLTD.csv
+│   │   ├── ALICON.csv
+│   │   ├── ALIVUS.csv
+│   │   ├── ALKALI.csv
+│   │   ├── ALKEM.csv
+│   │   ├── ALKYLAMINE.csv
+│   │   ├── ALLCARGO.csv
+│   │   ├── ALLDIGI.csv
+│   │   ├── ALLTIME.csv
+│   │   ├── ALMONDZ.csv
+│   │   ├── ALOKINDS.csv
+│   │   ├── ALPA.csv
+│   │   ├── ALPHAGEO.csv
+│   │   ├── AMANTA.csv
+│   │   ├── AMBER.csv
+│   │   ├── AMBICAAGAR.csv
+│   │   ├── AMBIKCO.csv
+│   │   ├── AMBUJACEM.csv
+│   │   ├── AMDIND.csv
+│   │   ├── AMJLAND.csv
+│   │   ├── AMNPLST.csv
+│   │   ├── AMRUTANJAN.csv
+│   │   ├── ANANDRATHI.csv
+│   │   ├── ANANTRAJ.csv
+│   │   ├── ANDHRAPAP.csv
+│   │   ├── ANDHRSUGAR.csv
+│   │   ├── ANGELONE.csv
+│   │   ├── ANIKINDS.csv
+│   │   ├── ANKITMETAL.csv
+│   │   ├── ANMOL.csv
+│   │   ├── ANSALAPI.csv
+│   │   ├── ANTELOPUS.csv
+│   │   ├── ANTGRAPHIC.csv
+│   │   ├── ANTHEM.csv
+│   │   ├── ANUHPHR.csv
+│   │   ├── ANUP.csv
+│   │   ├── ANURAS.csv
+│   │   ├── APARINDS.csv
+│   │   ├── APCL.csv
+│   │   ├── APCOTEXIND.csv
+│   │   ├── APEX.csv
+│   │   ├── APLAPOLLO.csv
+│   │   ├── APLLTD.csv
+│   │   ├── APOLLO.csv
+│   │   ├── APOLLOHOSP.csv
+│   │   ├── APOLLOPIPE.csv
+│   │   ├── APOLLOTYRE.csv
+│   │   ├── APOLSINHOT.csv
+│   │   └── APTECHT.csv
+│   ├── raw
+│   │   ├── 20MICRONS.csv
+│   │   ├── 21STCENMGM.csv
+│   │   ├── 360ONE.csv
+│   │   ├── 3IINFOLTD.csv
+│   │   ├── 3MINDIA.csv
+│   │   ├── 3PLAND.csv
+│   │   ├── 5PAISA.csv
+│   │   ├── 63MOONS.csv
+│   │   ├── A2ZINFRA.csv
+│   │   ├── AAATECH.csv
+│   │   ├── AADHARHFC.csv
+│   │   ├── AAKASH.csv
+│   │   ├── AAREYDRUGS.csv
+│   │   ├── AARNAV.csv
+│   │   ├── AARON.csv
+│   │   ├── AARTECH.csv
+│   │   ├── AARTIDRUGS.csv
+│   │   ├── AARTIIND.csv
+│   │   ├── AARTIPHARM.csv
+│   │   ├── AARTISURF.csv
+│   │   ├── AARVI.csv
+│   │   ├── AAVAS.csv
+│   │   ├── ABB.csv
+│   │   ├── ABBOTINDIA.csv
+│   │   ├── ABCAPITAL.csv
+│   │   ├── ABCOTS.csv
+│   │   ├── ABDL.csv
+│   │   ├── ABFRL.csv
+│   │   ├── ABINFRA.csv
+│   │   ├── ABLBL.csv
+│   │   ├── ABMINTLLTD.csv
+│   │   ├── ABREL.csv
+│   │   ├── ABSLAMC.csv
+│   │   ├── ACC.csv
+│   │   ├── ACCELYA.csv
+│   │   ├── ACCURACY.csv
+│   │   ├── ACE.csv
+│   │   ├── ACEINTEG.csv
+│   │   ├── ACI.csv
+│   │   ├── ACL.csv
+│   │   ├── ACMESOLAR.csv
+│   │   ├── ACUTAAS.csv
+│   │   ├── ADANIENSOL.csv
+│   │   ├── ADANIENT.csv
+│   │   ├── ADANIGREEN.csv
+│   │   ├── ADANIPORTS.csv
+│   │   ├── ADANIPOWER.csv
+│   │   ├── ADFFOODS.csv
+│   │   ├── ADL.csv
+│   │   ├── ADOR.csv
+│   │   ├── ADROITINFO.csv
+│   │   ├── ADSL.csv
+│   │   ├── ADVAIT.csv
+│   │   ├── ADVANCE.csv
+│   │   ├── ADVANIHOTR.csv
+│   │   ├── ADVENTHTL.csv
+│   │   ├── ADVENZYMES.csv
+│   │   ├── AEGISLOG.csv
+│   │   ├── AEGISVOPAK.csv
+│   │   ├── AEQUS.csv
+│   │   ├── AEROENTER.csv
+│   │   ├── AEROFLEX.csv
+│   │   ├── AERONEU.csv
+│   │   ├── AETHER.csv
+│   │   ├── AFCONS.csv
+│   │   ├── AFFLE.csv
+│   │   ├── AFFORDABLE.csv
+│   │   ├── AFIL.csv
+│   │   ├── AFSL.csv
+│   │   ├── AGARIND.csv
+│   │   ├── AGARWALEYE.csv
+│   │   ├── AGI.csv
+│   │   ├── AGIIL.csv
+│   │   ├── AGRITECH.csv
+│   │   ├── AGROPHOS.csv
+│   │   ├── AGSTRA.csv
+│   │   ├── AHCL.csv
+│   │   ├── AHLADA.csv
+│   │   ├── AHLEAST.csv
+│   │   ├── AHLUCONT.csv
+│   │   ├── AIAENG.csv
+│   │   ├── AIIL.csv
+│   │   ├── AIRAN.csv
+│   │   ├── AIROLAM.csv
+│   │   ├── AJANTPHARM.csv
+│   │   ├── AJAXENGG.csv
+│   │   ├── AJMERA.csv
+│   │   ├── AJOONI.csv
+│   │   ├── AKASH.csv
+│   │   ├── AKG.csv
+│   │   ├── AKI.csv
+│   │   ├── AKSHAR.csv
+│   │   ├── AKSHARCHEM.csv
+│   │   ├── AKSHOPTFBR.csv
+│   │   ├── AKUMS.csv
+│   │   ├── AKZOINDIA.csv
+│   │   ├── ALANKIT.csv
+│   │   ├── ALBERTDAVD.csv
+│   │   ├── ALEMBICLTD.csv
+│   │   ├── ALGOQUANT.csv
+│   │   ├── ALICON.csv
+│   │   ├── ALIVUS.csv
+│   │   ├── ALKALI.csv
+│   │   ├── ALKEM.csv
+│   │   ├── ALKYLAMINE.csv
+│   │   ├── ALLCARGO.csv
+│   │   ├── ALLDIGI.csv
+│   │   ├── ALLTIME.csv
+│   │   ├── ALMONDZ.csv
+│   │   ├── ALOKINDS.csv
+│   │   ├── ALPA.csv
+│   │   ├── ALPHAGEO.csv
+│   │   ├── AMAGI.csv
+│   │   ├── AMANTA.csv
+│   │   ├── AMBER.csv
+│   │   ├── AMBICAAGAR.csv
+│   │   ├── AMBIKCO.csv
+│   │   ├── AMBUJACEM.csv
+│   │   ├── AMDIND.csv
+│   │   ├── AMJLAND.csv
+│   │   ├── AMNPLST.csv
+│   │   ├── AMRUTANJAN.csv
+│   │   ├── ANANDRATHI.csv
+│   │   ├── ANANTRAJ.csv
+│   │   ├── ANDHRAPAP.csv
+│   │   ├── ANDHRSUGAR.csv
+│   │   ├── ANGELONE.csv
+│   │   ├── ANIKINDS.csv
+│   │   ├── ANKITMETAL.csv
+│   │   ├── ANMOL.csv
+│   │   ├── ANSALAPI.csv
+│   │   ├── ANTELOPUS.csv
+│   │   ├── ANTGRAPHIC.csv
+│   │   ├── ANTHEM.csv
+│   │   ├── ANUHPHR.csv
+│   │   ├── ANUP.csv
+│   │   ├── ANURAS.csv
+│   │   ├── APARINDS.csv
+│   │   ├── APCL.csv
+│   │   ├── APCOTEXIND.csv
+│   │   ├── APEX.csv
+│   │   ├── APLAPOLLO.csv
+│   │   ├── APLLTD.csv
+│   │   ├── APOLLO.csv
+│   │   ├── APOLLOHOSP.csv
+│   │   ├── APOLLOPIPE.csv
+│   │   ├── APOLLOTYRE.csv
+│   │   ├── APOLSINHOT.csv
+│   │   └── APTECHT.csv
+│   ├── ticker_fetcher.py
+│   └── trending_picks.json
+├── db.sqlite3
+├── deployment
+│   ├── ACTION_SUMMARY.md
+│   ├── CICD_DEPLOYMENT_GUIDE.md
+│   ├── DEPLOYMENT_READY.md
+│   ├── INDEX.md
+│   ├── QUICK_START_CICD.md
+│   ├── README.md
+│   ├── SETUP_CHECKLIST.md
+│   ├── SETUP_COMPLETE.md
+│   ├── VERIFICATION_REPORT.md
+│   ├── docker
+│   │   ├── backend
+│   │   │   └── Dockerfile
+│   │   └── frontend
+│   │       ├── Dockerfile
+│   │       └── nginx.conf
+│   ├── kubernetes
+│   │   ├── backend-deployment.yaml
+│   │   ├── backend-service.yaml
+│   │   ├── configmap.yaml
+│   │   ├── frontend-deployment.yaml
+│   │   ├── frontend-service.yaml
+│   │   ├── ingress.yaml
+│   │   └── secret.yaml
+│   ├── setup-cicd.bat
+│   ├── setup-cicd.sh
+│   └── verify_cicd_setup.py
+├── features
+│   ├── __init__.py
+│   ├── engineer.py
+│   └── multi_strategy.py
+├── frontend
+│   ├── .dockerignore
+│   ├── .gitignore
+│   ├── README.md
+│   ├── components.json
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── public
+│   │   ├── favicon.ico
+│   │   ├── placeholder.svg
+│   │   └── robots.txt
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── components
+│   │   │   ├── NavLink.tsx
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   ├── TradingModal.tsx
+│   │   │   ├── WalletModal.tsx
+│   │   │   ├── common
+│   │   │   │   ├── StatusComponents.test.tsx
+│   │   │   │   └── StatusComponents.tsx
+│   │   │   ├── layout
+│   │   │   │   └── AppLayout.tsx
+│   │   │   └── ui
+│   │   │       ├── accordion.tsx
+│   │   │       ├── alert-dialog.tsx
+│   │   │       ├── alert.tsx
+│   │   │       ├── aspect-ratio.tsx
+│   │   │       ├── avatar.tsx
+│   │   │       ├── badge.tsx
+│   │   │       ├── breadcrumb.tsx
+│   │   │       ├── button.tsx
+│   │   │       ├── calendar.tsx
+│   │   │       ├── card.tsx
+│   │   │       ├── carousel.tsx
+│   │   │       ├── chart.tsx
+│   │   │       ├── checkbox.tsx
+│   │   │       ├── collapsible.tsx
+│   │   │       ├── command.tsx
+│   │   │       ├── context-menu.tsx
+│   │   │       ├── dialog.tsx
+│   │   │       ├── drawer.tsx
+│   │   │       ├── dropdown-menu.tsx
+│   │   │       ├── form.tsx
+│   │   │       ├── hover-card.tsx
+│   │   │       ├── input-otp.tsx
+│   │   │       ├── input.tsx
+│   │   │       ├── label.tsx
+│   │   │       ├── menubar.tsx
+│   │   │       ├── navigation-menu.tsx
+│   │   │       ├── pagination.tsx
+│   │   │       ├── popover.tsx
+│   │   │       ├── progress.tsx
+│   │   │       ├── radio-group.tsx
+│   │   │       ├── resizable.tsx
+│   │   │       ├── scroll-area.tsx
+│   │   │       ├── select.tsx
+│   │   │       ├── separator.tsx
+│   │   │       ├── sheet.tsx
+│   │   │       ├── sidebar.tsx
+│   │   │       ├── skeleton.tsx
+│   │   │       ├── slider.tsx
+│   │   │       ├── sonner.tsx
+│   │   │       ├── switch.tsx
+│   │   │       ├── table.tsx
+│   │   │       ├── tabs.tsx
+│   │   │       ├── textarea.tsx
+│   │   │       ├── toast.tsx
+│   │   │       ├── toaster.tsx
+│   │   │       ├── toggle-group.tsx
+│   │   │       ├── toggle.tsx
+│   │   │       ├── tooltip.tsx
+│   │   │       └── use-toast.ts
+│   │   ├── config
+│   │   │   └── api.ts
+│   │   ├── contexts
+│   │   │   └── AuthContext.tsx
+│   │   ├── hooks
+│   │   │   ├── toast-reducer.test.ts
+│   │   │   ├── use-mobile.tsx
+│   │   │   ├── use-toast.ts
+│   │   │   └── usePolling.ts
+│   │   ├── index.css
+│   │   ├── lib
+│   │   │   ├── utils.test.ts
+│   │   │   └── utils.ts
+│   │   ├── main.tsx
+│   │   ├── pages
+│   │   │   ├── Dashboard.tsx
+│   │   │   ├── Discovery.tsx
+│   │   │   ├── Home.tsx
+│   │   │   ├── Login.tsx
+│   │   │   ├── NotFound.test.tsx
+│   │   │   ├── NotFound.tsx
+│   │   │   ├── Portfolio.test.tsx
+│   │   │   ├── Portfolio.tsx
+│   │   │   ├── RiskOS.tsx
+│   │   │   ├── Signup.tsx
+│   │   │   └── StockDetail.tsx
+│   │   ├── services
+│   │   │   ├── api.test.ts
+│   │   │   └── api.ts
+│   │   ├── stores
+│   │   │   ├── appStore.test.ts
+│   │   │   └── appStore.ts
+│   │   ├── tailwind.config.lov.json
+│   │   ├── test
+│   │   │   ├── example.test.ts
+│   │   │   └── setup.ts
+│   │   ├── utils
+│   │   │   ├── format.test.ts
+│   │   │   ├── format.ts
+│   │   │   ├── mockData.test.ts
+│   │   │   └── mockData.ts
+│   │   └── vite-env.d.ts
+│   ├── tailwind.config.ts
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   ├── vite.config.ts
+│   ├── vite.config.ts.timestamp-1776832807651-360e5f7d1f38b.mjs
+│   └── vitest.config.ts
+├── k8s
+│   ├── README.md
+│   ├── backend-deployment.yaml
+│   ├── backend-service.yaml
+│   ├── configmap.yaml
+│   ├── deploy.ps1
+│   ├── deploy.sh
+│   ├── frontend-deployment.yaml
+│   ├── frontend-service.yaml
+│   ├── namespace.yaml
+│   └── secrets.yaml
+├── logs
+│   └── pipeline.log
+├── models
+│   ├── lstm.pt
+│   ├── multi_strategy.py
+│   ├── multi_strategy_BHARTIARTL.pkl
+│   ├── multi_strategy_HDFCBANK.pkl
+│   ├── multi_strategy_ICICIBANK.pkl
+│   ├── multi_strategy_INFY.pkl
+│   ├── multi_strategy_ITC.pkl
+│   ├── multi_strategy_KOTAKBANK.pkl
+│   ├── multi_strategy_LT.pkl
+│   ├── multi_strategy_RELIANCE.pkl
+│   ├── multi_strategy_SBIN.pkl
+│   ├── multi_strategy_TCS.pkl
+│   └── tree_models.pkl
+├── monitoring
+│   ├── docker-compose.yml
+│   └── prometheus.yml
+├── project_structure.txt
+├── requirements.txt
+├── scratch
+│   ├── drop_tables.py
+│   └── generate_tree.py
+├── sonar-project.properties
+├── strategy
+│   ├── __init__.py
+│   └── signals.py
+├── tests
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_auth.py
+│   ├── test_auth_advanced.py
+│   ├── test_db_utils.py
+│   ├── test_endpoints.py
+│   ├── test_health.py
+│   ├── test_portfolio.py
+│   ├── test_routes_reliability.py
+│   ├── test_signals.py
+│   ├── test_trading.py
+│   ├── test_trading_engine.py
+│   ├── test_trading_flow.py
+│   ├── test_utils.py
+│   └── test_wallet.py
+├── trading
+│   ├── __init__.py
+│   ├── decision_engine.py
+│   ├── engine.py
+│   ├── options_engine.py
+│   └── risk.py
+├── training
+│   ├── __init__.py
+│   ├── dataset.py
+│   ├── lstm_model.py
+│   ├── retrain_scheduler.py
+│   └── trainer.py
+└── utils
+    ├── __init__.py
+    └── logger.py
