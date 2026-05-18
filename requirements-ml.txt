@@ -1,0 +1,5 @@
+torch==2.2.2
+transformers==4.41.2
+xgboost==2.0.3
+lightgbm==4.3.0
+huggingface_hub==0.36.2

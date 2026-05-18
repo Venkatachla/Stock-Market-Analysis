@@ -390,7 +390,7 @@ jobs:
 
       - name: Build backend image
         run: |
-          docker build -t venkatachalav/stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
+          docker build --build-arg INSTALL_ML=false -t venkatachalav/stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
 
       - name: Build frontend image
         run: |
@@ -484,8 +484,10 @@ jobs:
           push: true
           tags: ${{ steps.backend_meta.outputs.tags }}
           labels: ${{ steps.backend_meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:buildcache,mode=max
+          build-args: |
+            INSTALL_ML=false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push frontend image
         if: steps.docker_guard.outputs.skip != 'true'
@@ -630,7 +632,7 @@ jobs:
       - name: Load local Docker image into Kubernetes
         shell: powershell
         run: |
-          docker build -t stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
+          docker build --build-arg INSTALL_ML=false -t stockpulse-backend:latest -f deployment/docker/backend/Dockerfile .
           
           kind load docker-image stockpulse-backend:latest --name docker-desktop 2>$null
           
