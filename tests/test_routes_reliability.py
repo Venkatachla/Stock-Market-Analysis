@@ -44,20 +44,37 @@ def test_predict_endpoint_failure(mock_predict):
     assert response.status_code == 404
     assert "Could not predict for" in response.json()["detail"]
 
+@patch("api.app_fixed.verify_auth_token")
 @patch("api.app_fixed.get_wallet")
-def test_buy_insufficient_balance(mock_get_wallet):
+@patch("api.app_fixed.get_stock_price")
+def test_buy_insufficient_balance(mock_get_stock_price, mock_get_wallet, mock_verify_token):
     """Test business logic validation: cannot buy with insufficient balance."""
+    # Mock token verification to return user ID 1
+    mock_verify_token.return_value = 1
+    
+    # Mock stock price to 150.0
+    mock_get_stock_price.return_value = {
+        "price": 150.0,
+        "change": 0.0,
+        "changePercent": 0.0,
+        "volume": 1000,
+        "name": "Apple"
+    }
+    
     # Create a mock wallet with 100 balance
     mock_wallet = MagicMock()
     mock_wallet.balance = 100.0
     mock_get_wallet.return_value = mock_wallet
     
-    with patch("api.app_fixed.get_stock_price", return_value={"price": 150.0}):
-        # We need to mock the authentication dependency
-        with patch("api.app_fixed.get_current_user_dep", return_value=MagicMock(id=1, email="test@test.com")):
-            # Can't test directly via client easily due to dependencies, testing route logic
-            # This is handled securely in routes
-            pass
+    # Make request to buy 1 stock (cost 150.0, wallet 100.0)
+    response = client.post(
+        "/api/trading/buy",
+        headers={"Authorization": "Bearer fake-token"},
+        json={"symbol": "AAPL", "quantity": 1}
+    )
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Insufficient balance"
 
 def test_health_check_endpoint():
     """Test that the liveness probe endpoint works."""
