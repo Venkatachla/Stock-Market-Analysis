@@ -25,8 +25,29 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 import yfinance as yf
-from prometheus_fastapi_instrumentator import Instrumentator
-import prometheus_client
+try:
+    import prometheus_client
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+except ImportError:
+    prometheus_client = None
+
+    def generate_latest():
+        return b""
+
+    CONTENT_TYPE_LATEST = "text/plain"
+
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+except ImportError:
+    class Instrumentator:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def instrument(self, app):
+            return self
+
+        def expose(self, app, endpoint="/metrics"):
+            return self
 
 # Import from existing modules
 try:
@@ -605,7 +626,6 @@ async def actuator_info():
 @app.get("/actuator/prometheus")
 async def actuator_prometheus():
     # Provide an alias for the Spring Boot expected path using prometheus_client directly
-    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/")

@@ -9,8 +9,21 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Any, Optional
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
+
+def verify_model_hash(file_path: str, expected_hash: str) -> bool:
+    """Verifies the SHA256 checksum of a model file."""
+    sha256 = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest() == expected_hash
+    except Exception as e:
+        logger.error(f"Error calculating hash for {file_path}: {e}")
+        return False
 
 
 class ModelLoader:
@@ -116,11 +129,33 @@ class ModelLoader:
         for path in possible_paths:
             if path.exists():
                 try:
-                    # Load PyTorch model
+                    # Path validation
+                    allowed_dir = self.model_dir.resolve()
+                    model_path = path.resolve()
+                    
+                    if not str(model_path).startswith(str(allowed_dir)):
+                        logger.error(f"❌ Invalid model path: Path traversal detected for {path}")
+                        continue
+                        
+                    # Hash validation - Pre-calculated trusted SHA256 hash
+                    trusted_lstm_hash = "d9883277b1ac35ba8702104c62156ca39c7f00fb861c18f38cfe6021ff8cc8b5"
+                    if not verify_model_hash(str(model_path), trusted_lstm_hash):
+                        logger.error(f"❌ Model hash verification failed! Potential tampering detected for {path}")
+                        continue
+                        
+                    # Load PyTorch model securely with weights_only=True
                     # Note: You may need to define the model architecture
-                    model = torch.load(str(path), map_location='cpu')
-                    model.eval()  # Set to eval mode
-                    logger.info(f"✅ Loaded LSTM from {path.name}")
+                    state = torch.load(str(model_path), map_location='cpu', weights_only=True)
+                    # Note: Assuming this loader might be adapted for State Dict vs whole models. 
+                    # Right now it assumes `torch.load` returns the model or state directly.
+                    # We preserve existing return structure but secure the load.
+                    model = state
+                    
+                    # Try to call eval() if it's a full model object rather than a state dict
+                    if hasattr(model, 'eval'):
+                        model.eval()  # Set to eval mode
+                    
+                    logger.info(f"✅ Loaded LSTM securely from {path.name}")
                     return model
                 except Exception as e:
                     logger.error(f"❌ Failed to load LSTM from {path}: {str(e)}")

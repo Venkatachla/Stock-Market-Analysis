@@ -5,7 +5,7 @@ import { fetchDiscovery } from '@/services/api';
 import { mockSignals } from '@/utils/mockData';
 import { formatCurrency, formatPercent, formatLargeNumber } from '@/utils/format';
 import { SignalBadge } from '@/components/common/StatusComponents';
-import { Search, Filter, SlidersHorizontal } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { StockSignal } from '@/services/api';
 
 const sectors = ['All', 'Banking', 'IT', 'Energy', 'FMCG', 'Telecom', 'Pharma', 'Auto'];

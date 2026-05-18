@@ -13,6 +13,10 @@ import yfinance as yf
 from typing import Optional
 import pandas as pd
 
+from fastapi import FastAPI, HTTPException
+
+app = FastAPI(title="Fixed Prediction API")
+
 # ==================== RESPONSE MODELS ====================
 
 from pydantic import BaseModel
@@ -296,8 +300,13 @@ async def get_batch_predictions_fixed(symbols: str = "RELIANCE,TCS,INFY"):
     }
 
 
-print("✅ FIXED PREDICTION SYSTEM LOADED")
-print("   - Confidence = Pure ML probability")
-print("   - News = Separate signal")
-print("   - Data = Fresh every request")
-print("   - Timestamp = Included")
+predict_single = predict_single_FIXED
+predict_batch = get_batch_predictions_fixed
+
+
+if __name__ == "__main__":
+    print("✅ FIXED PREDICTION SYSTEM LOADED")
+    print("   - Confidence = Pure ML probability")
+    print("   - News = Separate signal")
+    print("   - Data = Fresh every request")
+    print("   - Timestamp = Included")

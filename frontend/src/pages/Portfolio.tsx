@@ -1,9 +1,7 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { useQuery } from '@tanstack/react-query';
 import { getPortfolio, getTransactions, getWallet, Transaction } from '@/services/api';
-import { mockPortfolio } from '@/utils/mockData';
-import { formatCurrency, formatPercent } from '@/utils/format';
 import { SignalBadge, MetricCard } from '@/components/common/StatusComponents';
 import { PieChart, TrendingUp, TrendingDown, Wallet, Plus, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';

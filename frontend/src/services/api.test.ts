@@ -8,7 +8,7 @@
  * - setAuthToken() — sets and clears Authorization header
  * - Data transformer logic via exported functions
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import api, { setAuthToken } from "@/services/api";
 
 // Mock axios to prevent real network calls

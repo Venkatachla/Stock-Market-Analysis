@@ -614,7 +614,7 @@ export const getPortfolio = async (token: string): Promise<Portfolio> => {
   return transformBackendPortfolio(response.data);
 };
 
-export const getTransactions = async (token: string, limit: number = 50): Promise<Transaction[]> => {
+export const getTransactions = async (token: string, _limit: number = 50): Promise<Transaction[]> => {
   const response = await api.get(`/portfolio/transactions`, {
     headers: { Authorization: `Bearer ${token}` },
   });

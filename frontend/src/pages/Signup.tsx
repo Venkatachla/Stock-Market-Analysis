@@ -35,7 +35,7 @@ const Signup: React.FC = () => {
       return false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address');
       return false;
@@ -85,7 +85,7 @@ const Signup: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <div>
               <label htmlFor="signup-email" className="block text-sm font-medium text-slate-300 mb-2">
                 Email Address
@@ -93,7 +93,9 @@ const Signup: React.FC = () => {
               <input
                 id="signup-email"
                 name="email"
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
