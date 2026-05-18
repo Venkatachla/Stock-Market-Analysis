@@ -31,28 +31,34 @@ class Token(BaseModel):
 
 def hash_password(password: str) -> str:
     """Hash password using bcrypt"""
-    # For now, just use SHA256 to match existing database
-    import hashlib
-    return hashlib.sha256(password.encode()).hexdigest()
+    return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify plain password against hash - support both SHA256 and bcrypt"""
     import hashlib
     
-    # Try SHA256 first (current database format)
-    sha256_hash = hashlib.sha256(plain_password.encode()).hexdigest()
-    if sha256_hash == hashed_password:
-        return True
-    
-    # Try bcrypt (for future use)
+    # Try bcrypt first (modern format)
     if hashed_password.startswith("$2"):
         try:
             return pwd_context.verify(plain_password, hashed_password)
         except Exception:
             pass
+        return False
+    
+    # Try SHA256 (legacy format)
+    sha256_hash = hashlib.sha256(plain_password.encode()).hexdigest()
+    if sha256_hash == hashed_password:
+        return True
     
     return False
+
+
+def needs_password_migration(hashed_password: str) -> bool:
+    """Check if password needs to be migrated to the latest hashing scheme"""
+    if not hashed_password.startswith("$2"):
+        return True
+    return pwd_context.needs_update(hashed_password)
 
 
 def create_access_token(email: str, user_id: int, expires_delta: Optional[timedelta] = None) -> str:

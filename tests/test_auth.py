@@ -24,39 +24,43 @@ from api.auth import (
 
 
 class TestHashPassword:
-    """Test hash_password() produces consistent SHA256 hashes."""
+    """Test hash_password() produces bcrypt hashes."""
 
-    def test_produces_sha256_hex_digest(self):
-        # hash_password uses SHA256 for compatibility with existing DB
+    def test_produces_bcrypt_hash(self):
         result = hash_password("mypassword")
-        expected = hashlib.sha256("mypassword".encode()).hexdigest()
-        assert result == expected
+        assert result.startswith("$2")
 
     def test_different_passwords_produce_different_hashes(self):
         h1 = hash_password("password1")
         h2 = hash_password("password2")
         assert h1 != h2
 
-    def test_same_password_produces_same_hash(self):
-        # SHA256 is deterministic
-        assert hash_password("test") == hash_password("test")
+    def test_same_password_produces_different_hash_due_to_salt(self):
+        # bcrypt is non-deterministic
+        assert hash_password("test") != hash_password("test")
 
     def test_empty_string_hashes(self):
         # Edge case: empty password should still produce a valid hash
         result = hash_password("")
-        assert len(result) == 64  # SHA256 hex digest is always 64 chars
+        assert result.startswith("$2")
 
 
 class TestVerifyPassword:
     """Test verify_password() against SHA256 and bcrypt formats."""
 
     def test_correct_sha256_password(self):
-        hashed = hash_password("correctpassword")
+        import hashlib
+        hashed = hashlib.sha256("correctpassword".encode()).hexdigest()
         assert verify_password("correctpassword", hashed) is True
 
     def test_wrong_sha256_password(self):
-        hashed = hash_password("correctpassword")
+        import hashlib
+        hashed = hashlib.sha256("correctpassword".encode()).hexdigest()
         assert verify_password("wrongpassword", hashed) is False
+
+    def test_correct_bcrypt_password(self):
+        hashed = hash_password("correctpassword")
+        assert verify_password("correctpassword", hashed) is True
 
     def test_bcrypt_format_fallback(self):
         # Test that bcrypt-prefixed hashes trigger the bcrypt path
