@@ -5,17 +5,17 @@ from api.app_fixed import app
 
 client = TestClient(app, raise_server_exceptions=False)
 
-@patch("api.routes.get_stock_price")
-def test_safe_get_stock_price_fallback(mock_get_price):
-    """Test that safe_get_stock_price gracefully falls back to None on exception."""
-    from api.routes import safe_get_stock_price
+@patch("api.app_fixed.yf.Ticker")
+def test_safe_get_stock_price_fallback(mock_ticker):
+    """Test that get_stock_price gracefully falls back to default on exception."""
+    from api.app_fixed import get_stock_price
     
     # Simulate an external API failure
-    mock_get_price.side_effect = Exception("Yahoo Finance API Timeout")
+    mock_ticker.side_effect = Exception("Yahoo Finance API Timeout")
     
-    # Should not raise an exception, should return None
-    result = safe_get_stock_price("RELIANCE")
-    assert result is None
+    # Should not raise an exception, should return fallback data
+    result = get_stock_price("RELIANCE_FALLBACK_TEST")
+    assert result["price"] == 1500.0
 
 @patch("api.app_fixed.get_user_by_email")
 def test_login_exception_handling(mock_get_user):
@@ -44,7 +44,7 @@ def test_predict_endpoint_failure(mock_predict):
     assert response.status_code == 404
     assert "Could not predict for" in response.json()["detail"]
 
-@patch("api.routes.get_wallet")
+@patch("api.app_fixed.get_wallet")
 def test_buy_insufficient_balance(mock_get_wallet):
     """Test business logic validation: cannot buy with insufficient balance."""
     # Create a mock wallet with 100 balance
@@ -52,9 +52,9 @@ def test_buy_insufficient_balance(mock_get_wallet):
     mock_wallet.balance = 100.0
     mock_get_wallet.return_value = mock_wallet
     
-    with patch("api.routes.get_stock_price", return_value=150.0):
+    with patch("api.app_fixed.get_stock_price", return_value={"price": 150.0}):
         # We need to mock the authentication dependency
-        with patch("api.routes.get_current_user", return_value=MagicMock(id=1, email="test@test.com")):
+        with patch("api.app_fixed.get_current_user", return_value=MagicMock(id=1, email="test@test.com")):
             # Can't test directly via client easily due to dependencies, testing route logic
             # This is handled securely in routes
             pass

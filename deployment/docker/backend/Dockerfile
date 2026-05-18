@@ -9,19 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
-COPY requirements.txt requirements-ml.txt* ./
-
-# Build arguments
-ARG INSTALL_ML=false
+COPY requirements.txt .
 
 # Create virtual environment and install dependencies
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    if [ "$INSTALL_ML" = "true" ] && [ -f "requirements-ml.txt" ]; then \
-        pip install --no-cache-dir -r requirements-ml.txt; \
-    fi
+    pip install --no-cache-dir -r requirements.txt
 
 # Final stage
 FROM python:3.11-slim
@@ -39,7 +33,6 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy application code
 COPY api/ ./api/
 COPY utils/ ./utils/
-COPY data/ ./data/
 
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH" \

@@ -84,6 +84,13 @@ backtest/**
 scratch/
 models/
 training/
+data/
+notebooks/
+*.pt
+*.pth
+*.ckpt
+.ipynb_checkpoints
+*.ipynb
 
 # Misc
 .venv
